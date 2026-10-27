@@ -1,0 +1,5 @@
+{
+  "runId": "run_fixture_changes_001",
+  "status": "ok",
+  "summary": "## Findings\n- `scripts/review_pr.py`: line 42: major: failure to handle missing verdict line leads to undefined behaviour.\n\n## Missing tests or evidence\nMissing offline unit test coverage for error conditions.\n\n## Questions for the author\nCan we avoid network calls when reading from result files?\n\nVERDICT: CHANGES"
+}

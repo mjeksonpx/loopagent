@@ -203,10 +203,64 @@ def post_review(repo: str, pr: int, body: str, verdict: str) -> str:
         os.unlink(path)
 
 
+def selftest() -> int:
+    """Offline unit test: assert parser verdict mapping and verify that missing verdict never posts."""
+    fixtures = [
+        ("configs/fixtures/review_approve.json", "APPROVE", PASS_MARKER, 0),
+        ("configs/fixtures/review_changes.json", "CHANGES", STOP_MARKER, 1),
+        ("configs/fixtures/review_no_verdict.json", None, STOP_MARKER, 1),
+    ]
+    for path, expected_verdict, expected_marker, expected_rc in fixtures:
+        full_path = os.path.join(ROOT, path)
+        if not os.path.exists(full_path):
+            print(f"selftest: missing fixture {path}", file=sys.stderr)
+            return 1
+        raw = open(full_path, encoding="utf-8").read()
+        text = extract_text(raw)
+        verdict = verdict_of(text)
+        if verdict != expected_verdict:
+            print(f"selftest failed for {path}: expected verdict {expected_verdict!r}, got {verdict!r}", file=sys.stderr)
+            return 1
+    # Run main() on all three fixtures to assert full end-to-end exit code and output
+    for path, expected_verdict, expected_marker, expected_rc in fixtures:
+        full_path = os.path.join(ROOT, path)
+        proc = subprocess.run(
+            [sys.executable, __file__, "--profile", "sample-service", "--pr", "0", "--result-file", full_path],
+            capture_output=True, text=True
+        )
+        if proc.returncode != expected_rc:
+            print(f"selftest failed for {path}: expected rc {expected_rc}, got {proc.returncode}. Output:\n{proc.stdout}\n{proc.stderr}", file=sys.stderr)
+            return 1
+        if expected_marker not in proc.stdout and expected_marker not in proc.stderr:
+            print(f"selftest failed for {path}: marker {expected_marker} not found in output", file=sys.stderr)
+            return 1
+        if expected_verdict is None:
+            if "the reviewer did not return a VERDICT line" not in proc.stderr:
+                print(f"selftest failed for {path}: did not name missing verdict line in stderr", file=sys.stderr)
+                return 1
+
+    # Assert that --post is NOT attempted when the verdict is missing
+    proc_post = subprocess.run(
+        [sys.executable, __file__, "--profile", "sample-service", "--pr", "0",
+         "--result-file", os.path.join(ROOT, "configs/fixtures/review_no_verdict.json"), "--post"],
+        capture_output=True, text=True
+    )
+    if proc_post.returncode != 1:
+        print("selftest failed: --post with missing verdict must exit 1", file=sys.stderr)
+        return 1
+    if "post:" in proc_post.stdout or "post:" in proc_post.stderr:
+        print("selftest failed: --post attempted despite missing verdict", file=sys.stderr)
+        return 1
+
+    print("selftest: all fixture verdicts and stop conditions verified")
+    print(PASS_MARKER)
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Second-level review of a pull request via ywcrew.")
-    ap.add_argument("--profile", required=True, help="repo profile that names the repository")
-    ap.add_argument("--pr", type=int, required=True)
+    ap.add_argument("--profile", default="sample-service", help="repo profile that names the repository")
+    ap.add_argument("--pr", type=int, default=0, help="pull request number to review")
     ap.add_argument("--backend", default="agy")
     ap.add_argument("--model", default="gemini-3.8-flash")
     ap.add_argument("--panel", action="store_true", help="use ywcrew panel instead of one backend")
@@ -214,36 +268,14 @@ def main(argv=None) -> int:
     ap.add_argument("--dry-run", action="store_true", help="print the brief, dispatch nothing")
     ap.add_argument("--diff-file", help="review a diff from a file instead of asking gh (offline)")
     ap.add_argument("--result-file", help="parse an existing `ywcrew result` JSON instead of dispatching")
+    ap.add_argument("--selftest", action="store_true", help="run offline fixture assertions, then exit")
     args = ap.parse_args(argv)
+
+    if args.selftest:
+        return selftest()
 
     profile = profile_or_die(args.profile)
     repo = profile["repo"]
-    if not shutil.which("gh") and not args.diff_file:
-        print("gh is not installed: pass --diff-file or install the GitHub CLI", file=sys.stderr)
-        print(STOP_MARKER)
-        return 1
-    try:
-        if args.diff_file:
-            diff = open(args.diff_file, encoding="utf-8", errors="replace").read()
-            meta = {"title": os.path.basename(args.diff_file), "files": [], "baseRefName": "?",
-                    "headRefName": "?"}
-        else:
-            meta = pr_meta(repo, args.pr)
-            diff = pr_diff(repo, args.pr)
-    except (RuntimeError, OSError) as exc:
-        print(f"cannot read the pull request: {exc}", file=sys.stderr)
-        print(STOP_MARKER)
-        return 1
-
-    bundle = [i["command"] for i in (worker_brief.bundle_commands(profile) if worker_brief else [])]
-    spec = build_task(profile, repo, args.pr, meta, diff, bundle)
-
-    if args.dry_run:
-        print(spec["diff"])
-        print()
-        print(f"--- not dispatched. backend={args.backend}:{args.model} panel={args.panel} ---")
-        print(PASS_MARKER)
-        return 0
 
     if args.result_file:
         try:
@@ -254,6 +286,33 @@ def main(argv=None) -> int:
             return 1
         run_id = "from --result-file"
     else:
+        if not shutil.which("gh") and not args.diff_file:
+            print("gh is not installed: pass --diff-file or install the GitHub CLI", file=sys.stderr)
+            print(STOP_MARKER)
+            return 1
+        try:
+            if args.diff_file:
+                diff = open(args.diff_file, encoding="utf-8", errors="replace").read()
+                meta = {"title": os.path.basename(args.diff_file), "files": [], "baseRefName": "?",
+                        "headRefName": "?"}
+            else:
+                meta = pr_meta(repo, args.pr)
+                diff = pr_diff(repo, args.pr)
+        except (RuntimeError, OSError) as exc:
+            print(f"cannot read the pull request: {exc}", file=sys.stderr)
+            print(STOP_MARKER)
+            return 1
+
+        bundle = [i["command"] for i in (worker_brief.bundle_commands(profile) if worker_brief else [])]
+        spec = build_task(profile, repo, args.pr, meta, diff, bundle)
+
+        if args.dry_run:
+            print(spec["diff"])
+            print()
+            print(f"--- not dispatched. backend={args.backend}:{args.model} panel={args.panel} ---")
+            print(PASS_MARKER)
+            return 0
+
         try:
             raw, run_id = dispatch(spec, args.backend, args.model, args.panel)
         except (RuntimeError, OSError, subprocess.SubprocessError) as exc:

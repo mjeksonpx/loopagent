@@ -1,0 +1,5 @@
+{
+  "runId": "run_fixture_approve_001",
+  "status": "ok",
+  "summary": "## Findings\nNo blockers found. The design is clean and matches the acceptance criteria.\n\n## Missing tests or evidence\nNone; the mandatory evidence bundle was proved and reproduced.\n\n## Questions for the author\nNone.\n\nVERDICT: APPROVE"
+}
