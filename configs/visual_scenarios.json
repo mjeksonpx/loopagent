@@ -1,0 +1,66 @@
+{
+  "page": "status.html",
+  "report": "artifacts/visual_check_report.json",
+  "note": "Visual checks of the operator status page: what a person actually sees. The technical and product gates read machine reports; a page can be technically correct and visually wrong (a failing row rendered green, a verdict buried under the fold, a blank render). Each scenario states what a user must see and what must never be visible, and the screenshot is kept so a human or the agent can look at the layout.",
+  "scenarios": [
+    {
+      "id": "V01",
+      "title": "the page renders the two verdicts a user came for",
+      "why": "an operator opens this page to answer one question - are we accepted? - and a page that does not answer it is decoration",
+      "page": "status.html",
+      "expect": {
+        "require_text": [
+          "loop-system status",
+          "technical gate",
+          "product acceptance",
+          "product accepted"
+        ],
+        "forbid_text": [
+          "not accepted",
+          "FAIL",
+          "STOP_"
+        ],
+        "screenshot_required": true,
+        "min_bytes": 20000,
+        "visible_cell_truncation": true,
+        "cell_width": 70
+      }
+    },
+    {
+      "id": "V02",
+      "title": "no failing row is rendered in the page at all",
+      "why": "a green page that still lists failures teaches the operator to distrust the page, which is worse than showing nothing",
+      "page": "status.html",
+      "expect": {
+        "require_text": [
+          "Loop state",
+          "Queue"
+        ],
+        "forbid_text": [
+          "class='fail'",
+          "class=\"fail\""
+        ],
+        "screenshot_required": true,
+        "min_bytes": 20000
+      }
+    },
+    {
+      "id": "V03",
+      "title": "the loop state and the queue are visible, not merely present in the JSON",
+      "why": "round, risk and the queued tasks are what tells an operator whether the loop is alive; if they are not on the page they are not being read",
+      "page": "status.html",
+      "expect": {
+        "require_text": [
+          "round",
+          "risk",
+          "blockers",
+          "anchor verdict"
+        ],
+        "screenshot_required": true,
+        "min_bytes": 20000,
+        "visible_cell_truncation": true,
+        "cell_width": 70
+      }
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+# Gitignored state the loop gate reads (artifacts/loop_state.json, the D05 anchor, rounds, handoff).
+# Copied into ywcrew's isolation worktree so a read-only task (agy et al) can run the gate against the
+# same evidence instead of an empty tree. Entries are excluded from the collected patch.
+artifacts/
+handoff/

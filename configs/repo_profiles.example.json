@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "note": "PER-REPOSITORY CONTRACT — this is the example shipped with the public tree, copied to configs/repo_profiles.json by scripts/export_public.py. Replace it with your own repository: the evidence bundle is the machine-readable form of the rule that a worker must prove EVERY gate its repository requires, not a subset. Add a profile before queueing issues for a new repository; the bridge refuses to mint a brief for an unknown profile (fail-closed). local_path may stay null: pass --repo-path, or set the environment variable named in local_path_env.",
+  "profiles": {
+    "sample-service": {
+      "repo": "example/sample-service",
+      "base_branch": "main",
+      "local_path": null,
+      "local_path_env": "EXAMPLE_REPO",
+      "sources_of_truth": [
+        "AGENTS.md",
+        "Makefile"
+      ],
+      "evidence_bundle": [
+        {
+          "command": "make build",
+          "source": "Makefile target 'build': a change is not accepted uncompiled"
+        },
+        {
+          "command": "make lint",
+          "source": "AGENTS.md -> code quality rules, item 1 (mandatory before any commit, 0 issues)"
+        },
+        {
+          "command": "make test",
+          "source": "AGENTS.md -> code quality rules, item 4 (all tests pass before creating a commit)"
+        }
+      ],
+      "bundle_source": "AGENTS.md -> 'code quality rules (mandatory before any commit)' plus the Makefile build target",
+      "branch_pattern": "<role>/issue-<n>",
+      "pr_rules": [
+        "one task = one PR: exactly one issue, one branch, one pull request",
+        "PR body embeds the evidence bundle verbatim (command, output, exit code)",
+        "branch <role>/issue-<n> off main; never commit or push to main",
+        "changes stay inside this repository; no infra/GitOps repos",
+        "the reviewer re-runs the bundle in a separate worktree of the PR head commit: an unproven command is a REJECT regardless of the code"
+      ],
+      "kanban": {
+        "assignee": "dev",
+        "assignee_by_label": {
+          "qa": "qa",
+          "ux": "qa"
+        },
+        "project": "example",
+        "workspace": null,
+        "priority": 0,
+        "note": "project=<slug> anchors the task in an isolated git worktree of the target clone with a deterministic branch; the worker commits and pushes that branch and opens the PR itself when `gh auth status` succeeds. Without an execution backend use --target backlog."
+      },
+      "triage_labels": [
+        "valid",
+        "triaged",
+        "approved"
+      ],
+      "skip_labels": [
+        "invalid",
+        "wontfix",
+        "duplicate",
+        "needs-info",
+        "question",
+        "blocked"
+      ]
+    }
+  }
+}

@@ -1,0 +1,3 @@
+# Public half of the anchor witness key (private half: ~/.ssh/loop_anchor_ed25519, never committed).
+# ssh-keygen -Y verify -f configs/allowed_signers -I loop-anchor@example.org -n loop-anchor -s <sig> < <anchor>
+loop-anchor@example.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJHdUxixs6xV0wHlUnqnvaUmPDGYb2x5Io1BlI62o5ep

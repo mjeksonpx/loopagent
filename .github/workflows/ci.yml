@@ -1,0 +1,41 @@
+name: ci
+
+# One job, one interpreter. A matrix of three versions multiplied the failure surface by three and told a
+# contributor nothing they could act on — the first public build had to be read three times to learn that
+# 3.9 is not installed on the newest image. A green badge should mean "this runs", not "this may run on
+# something". The declared floor stays 3.9 and `make check` is how you verify your own interpreter.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gates:
+    name: gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install the one optional dependency a contract check can use
+        run: python -m pip install --quiet jsonschema
+
+      - name: What CI can honestly assert — the same command a contributor runs
+        # `make check` is compileall + the dimensions that depend only on the code + the regression suite.
+        # The strict marker needs loop *state* (rounds, handoff, a signed anchor) which a clone does not
+        # have by design, and D08 audits an input this project does not ship, so neither is required here.
+        run: make check PYTHON=python
+
+      - name: Cold start — the honest verdict for a tree that has never run the loop
+        # Proves the documented first-run path in CI: declare the cold start, then the gate must answer
+        # LOOP_ENGINEERING_COLD_0001 (exit 0) instead of a fabricated PASS.
+        run: |
+          python scripts/bootstrap_state.py --init
+          python scripts/check_loop.py --strict

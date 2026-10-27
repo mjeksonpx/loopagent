@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "loopgate"
+version = "0.1.0"
+description = "Accept agent work by proof, not by confidence: gates that print a marker and refuse to take the agent's word."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "loopagent contributors" }]
+keywords = ["ai-agents", "code-review", "evidence", "gates", "ci", "verification"]
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Software Development :: Quality Assurance",
+  "Topic :: Software Development :: Testing",
+  "Environment :: Console",
+]
+dependencies = []
+
+[project.optional-dependencies]
+# Optional: one product-acceptance scenario validates published JSON contracts. Everything else is stdlib.
+contracts = ["jsonschema>=4.18"]
+
+[project.scripts]
+loopgate = "loopgate.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/"
+
+[tool.setuptools]
+packages = ["loopgate"]
+
+[tool.setuptools.package-data]
+loopgate = ["py.typed"]

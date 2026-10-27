@@ -1,0 +1,12 @@
+{
+  "note": "The ladder between a human placing every card and the machine placing them overnight. mode=hitl means the bridge refuses --apply for the kanban target and only a human creates cards; mode=afk lets cron queue them, but only inside max_cards and budget_tokens. The backlog target writes a ledger line and starts nothing, so it stays allowed at every rung.",
+  "mode": "hitl",
+  "active": false,
+  "max_cards": 2,
+  "budget_tokens": 400000,
+  "roles": {
+    "note": "per-card ceilings used by scripts/guard_card.py; visible here so one file answers 'what may this run spend'",
+    "max_runs_per_card": 3,
+    "max_runtime_minutes": 30
+  }
+}
