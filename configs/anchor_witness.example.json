@@ -1,0 +1,14 @@
+{
+  "signing_key": "~/.ssh/loop_anchor_ed25519",
+  "identity": "loop-anchor@example.org",
+  "namespace": "loop-anchor",
+  "allowed_signers": "configs/allowed_signers",
+  "marker": "LOOP_ANCHOR_WITNESS",
+  "destination": {
+    "kind": "issue",
+    "repo": "example/loop-witness",
+    "issue": 1,
+    "note": "Put your own witness journal here: one issue in a repository you do not develop in, one comment per anchor digest. A gist also works if your token has the gist scope. The point is a timestamp this machine does not control."
+  },
+  "note": "EXAMPLE — replace with your own before signing. Generate a purpose-limited, passphrase-free key (ssh-keygen -t ed25519 -f ~/.ssh/loop_anchor_ed25519 -N ''), publish its public half in configs/allowed_signers, and pick an external repository you do not own the history of. The key proves the anchor was written by its holder; the external comment gives the digest a timestamp this machine cannot rewrite."
+}

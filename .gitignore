@@ -1,0 +1,7 @@
+artifacts/
+handoff/
+__pycache__/
+dist/
+*.egg-info/
+build/
+.venv/

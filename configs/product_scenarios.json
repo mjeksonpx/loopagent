@@ -1,0 +1,99 @@
+{
+  "product": "sample-service",
+  "profile": "sample-service",
+  "report": "artifacts/product_acceptance_report.json",
+  "note": "User-facing (operator) acceptance scenarios. The technical gate asks whether the loop is disciplined; this gate asks whether a user can do their job with the product. Every scenario states what a user observes and why it matters. Expectations below were measured by hand against sample-service at e477477 before being written down (probes answer 200, metrics serves Prometheus text, an invalid port is refused with exit 1 naming the field, SIGTERM ends the process in ~250 ms).",
+  "env_base": {
+    "APP_ENV": "local",
+    "AUTH_SECRET": "local-acceptance-only-not-a-secret",
+    "POSTGRES_ENABLED": "false",
+    "POSTGRES_HOST": "127.0.0.1",
+    "POSTGRES_PORT": "5432",
+    "POSTGRES_DB": "sample_service",
+    "POSTGRES_USER": "sample_service",
+    "POSTGRES_PASS": "local-acceptance-only",
+    "HTTP_SERVER_HOST": "127.0.0.1"
+  },
+  "scenarios": [
+    {
+      "id": "P01",
+      "title": "the process starts with a local env and binds the probes listener",
+      "why": "an operator cannot use the product at all if it does not come up on a documented configuration",
+      "kind": "http",
+      "port": "probes",
+      "path": "/readiness",
+      "expect": {"status": 200, "json_ok_true": true}
+    },
+    {
+      "id": "P02",
+      "title": "/healthcheck answers 200 while the database is disabled",
+      "why": "liveness must not depend on a database, otherwise an operator without Postgres sees a dead service",
+      "kind": "http",
+      "port": "probes",
+      "path": "/healthcheck",
+      "expect": {"status": 200, "json_ok_true": true}
+    },
+    {
+      "id": "P03",
+      "title": "/readiness answers 200 with POSTGRES_ENABLED=false",
+      "why": "readiness gates traffic; a false negative here takes the service out of rotation for no reason",
+      "kind": "http",
+      "port": "probes",
+      "path": "/readiness",
+      "expect": {"status": 200, "json_ok_true": true}
+    },
+    {
+      "id": "P04",
+      "title": "/metrics serves Prometheus text",
+      "why": "operators monitor the service; a metrics endpoint that answers non-Prometheus content is silent blindness",
+      "kind": "http",
+      "port": "metrics",
+      "path": "/metrics",
+      "expect": {"status": 200, "body_contains": "# HELP"}
+    },
+    {
+      "id": "P05",
+      "title": "the API listener is bound and answers on the documented port",
+      "why": "the API port must be owned by this process (no business routes exist in this phase, so 404 is the documented answer, not a hang or a connection refusal)",
+      "kind": "http",
+      "port": "api",
+      "path": "/",
+      "expect": {"status": 404}
+    },
+    {
+      "id": "P06",
+      "title": "SIGTERM shuts the process down cleanly within 2 s",
+      "why": "a service that ignores SIGTERM is killed hard by its supervisor, dropping in-flight work",
+      "kind": "signal",
+      "expect": {"exit_code": 0, "max_shutdown_ms": 2000}
+    },
+    {
+      "id": "P07",
+      "title": "an invalid configuration is refused loudly with a non-zero exit",
+      "why": "an operator typo must fail at startup with the offending field named, not start a half-configured service",
+      "kind": "startup_failure",
+      "env": {"HTTP_SERVER_LISTEN_PORT": "not-a-port"},
+      "expect": {"exit_nonzero": true, "stderr_contains": "HttpServerListenPort"}
+    },
+    {
+      "id": "P08",
+      "title": "the published v1 contracts validate their valid bundle and reject the invalid ones",
+      "why": "the contracts are the product's external interface; a fixture that no longer validates means a breaking change shipped, and a fixture that should be rejected but is not means the interface accepts garbage",
+      "kind": "json_schema",
+      "schema": "contracts/v1/generation-manifest.schema.json",
+      "members": {
+        "context": "platform-execution-context.schema.json",
+        "plan": "resolved-inference-plan.schema.json",
+        "result": "normalized-inference-result.schema.json",
+        "manifest": "generation-manifest.schema.json",
+        "worker_events[]": "worker-event.schema.json",
+        "integration_events[]": "integration-event.schema.json"
+      },
+      "fixtures_valid": "contracts/fixtures/v1/valid",
+      "fixtures_invalid": "contracts/fixtures/v1/invalid",
+      "optional": true,
+      "requires": ["python:jsonschema"],
+      "expect": {"valid_fixtures_validate": true, "invalid_fixtures_rejected": true}
+    }
+  ]
+}

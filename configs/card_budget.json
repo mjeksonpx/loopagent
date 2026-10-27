@@ -1,0 +1,35 @@
+{
+  "note": "Budgets per card. Values are starting points measured in the spirit of scripts/estimate_task.py: raise them from finished runs instead of guessing, and set them low enough that a stuck card is cheaper than a good one. max_tokens counts input + output + cache read + cache write for the worker session only.",
+  "default": {
+    "max_tokens": 250000,
+    "max_runs": 3,
+    "max_runtime_minutes": 30,
+    "no_progress_minutes": 20
+  },
+  "profiles": {
+    "dev": {
+      "max_tokens": 400000,
+      "max_runs": 3,
+      "max_runtime_minutes": 30,
+      "no_progress_minutes": 20
+    },
+    "research": {
+      "max_tokens": 80000,
+      "max_runs": 2,
+      "max_runtime_minutes": 15,
+      "no_progress_minutes": 10
+    },
+    "reviewer": {
+      "max_tokens": 150000,
+      "max_runs": 2,
+      "max_runtime_minutes": 20,
+      "no_progress_minutes": 15
+    },
+    "qa": {
+      "max_tokens": 120000,
+      "max_runs": 3,
+      "max_runtime_minutes": 20,
+      "no_progress_minutes": 15
+    }
+  }
+}

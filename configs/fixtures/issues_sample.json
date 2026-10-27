@@ -1,0 +1,75 @@
+{
+  "note": "Offline fixture for the issue bridge. Synthetic issues used to prove the deterministic classification and the rendered brief without touching GitHub. Numbers are deliberately high (9xx) so a fixture run can never collide with a real sample-service issue in a task's idempotency key. The bridge refuses --apply for a fixture source.",
+  "repo": "example/sample-service",
+  "issues": [
+    {
+      "number": 901,
+      "title": "Renderer drops the last frame of a multi-shot assembly",
+      "url": "https://github.com/example/sample-service/issues/901",
+      "state": "OPEN",
+      "labels": [
+        {
+          "name": "triaged"
+        },
+        {
+          "name": "bug"
+        }
+      ],
+      "body": "### Steps to reproduce\n1. Assemble a 3-shot timeline with a 4.2 s last shot.\n2. Run the renderer with default settings.\n\n### Expected\nAll frames of the last shot are present.\n\n### Acceptance\n- The assembled file contains the final frame of every shot.\n- `go test -count=1 ./internal/render/...` covers the boundary case.\n\n### Actual\nThe final ~0.4 s of the last shot is missing; the timeline ends early."
+    },
+    {
+      "number": 902,
+      "title": "Add H.265 export profile",
+      "url": "https://github.com/example/sample-service/issues/902",
+      "state": "OPEN",
+      "labels": [
+        {
+          "name": "feature"
+        }
+      ],
+      "body": "### Motivation\nExporting H.265 halves the storage cost for archived renders.\n\n### Acceptance criteria\n- A `h265` profile is selectable in the export config.\n- Exports round-trip: decode of the produced file matches the source resolution and frame count.\n- Existing profiles are unchanged."
+    },
+    {
+      "number": 903,
+      "title": "it broke",
+      "url": "https://github.com/example/sample-service/issues/903",
+      "state": "OPEN",
+      "labels": [
+        {
+          "name": "bug"
+        }
+      ],
+      "body": "doesn't work"
+    },
+    {
+      "number": 904,
+      "title": "Renderer crashes on unrelated flaky test",
+      "url": "https://github.com/example/sample-service/issues/904",
+      "state": "OPEN",
+      "labels": [
+        {
+          "name": "invalid"
+        },
+        {
+          "name": "bug"
+        }
+      ],
+      "body": "### Steps to reproduce\nRun the suite twice; a test fails once.\n\n### Acceptance\n- Isolated failure is not a renderer defect; closed with the run log attached to prove flakiness rather than a code path."
+    },
+    {
+      "number": 905,
+      "title": "Export dialog shows the wrong duration for a 60 s clip",
+      "url": "https://github.com/example/sample-service/issues/905",
+      "state": "OPEN",
+      "labels": [
+        {
+          "name": "qa"
+        },
+        {
+          "name": "ux"
+        }
+      ],
+      "body": "### Steps to reproduce\n1. Open the export dialog for a 60 s clip.\n2. Read the duration shown next to the profile selector.\n\n### Expected\nThe dialog shows 60 s (00:01:00).\n\n### Acceptance\n- The dialog shows the clip's real duration for 60 s and 3 600 s clips.\n- A screenshot of both states is attached to the issue before it is closed.\n\n### Actual\nIt shows 00:00:60.\n\n### Filed by\nqa role, visual check of the export dialog (screenshot attached to the PR)."
+    }
+  ]
+}

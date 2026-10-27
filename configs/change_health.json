@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "note": "Which direction of each metric is bad. A metric nobody can defend does not belong here; a metric without a policy is not judged at all.",
+  "metrics": {
+    "gate_dims": {
+      "kind": "must_not_decrease",
+      "why": "a dimension that quietly disappears is a claim nobody checks any more"
+    },
+    "regression_cases": {
+      "kind": "must_not_decrease",
+      "why": "these are the gate's own falsifications: fewer cases means less proof that it can fail"
+    },
+    "python_lines": {
+      "kind": "max_growth_pct",
+      "tolerance": 20,
+      "why": "code that grows faster than the proof grows is how a gate becomes a wish"
+    },
+    "largest_file_lines": {
+      "kind": "max_growth_pct",
+      "tolerance": 15,
+      "why": "one file becoming the place where everything lives is a refactor waiting to happen"
+    },
+    "python_files": {
+      "kind": "max_growth_pct",
+      "tolerance": 30,
+      "why": "file count is not quality, but a jump means a new surface nobody has tested"
+    },
+    "todo_markers": {
+      "kind": "must_not_increase",
+      "tolerance": 3,
+      "why": "deferred work has a way of becoming permanent; three more is a warning, ten is a habit"
+    }
+  }
+}
