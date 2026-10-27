@@ -205,6 +205,13 @@ def post_review(repo: str, pr: int, body: str, verdict: str) -> str:
 
 def selftest() -> int:
     """Offline unit test: assert parser verdict mapping and verify that missing verdict never posts."""
+    # The selftest must pass in any tree: the published one ships `sample-service`, the working one ships
+    # the real profiles. Hardcoding a profile name made the test pass only where that name happened to exist.
+    profiles = sorted((worker_brief.load_profiles(ROOT) if worker_brief else {}) or {})
+    if not profiles:
+        print("selftest: no repository profile to parse the fixtures with", file=sys.stderr)
+        return 1
+    profile_name = profiles[0]
     fixtures = [
         ("configs/fixtures/review_approve.json", "APPROVE", PASS_MARKER, 0),
         ("configs/fixtures/review_changes.json", "CHANGES", STOP_MARKER, 1),
@@ -225,7 +232,7 @@ def selftest() -> int:
     for path, expected_verdict, expected_marker, expected_rc in fixtures:
         full_path = os.path.join(ROOT, path)
         proc = subprocess.run(
-            [sys.executable, __file__, "--profile", "sample-service", "--pr", "0", "--result-file", full_path],
+            [sys.executable, __file__, "--profile", profile_name, "--pr", "0", "--result-file", full_path],
             capture_output=True, text=True
         )
         if proc.returncode != expected_rc:
@@ -241,7 +248,7 @@ def selftest() -> int:
 
     # Assert that --post is NOT attempted when the verdict is missing
     proc_post = subprocess.run(
-        [sys.executable, __file__, "--profile", "sample-service", "--pr", "0",
+        [sys.executable, __file__, "--profile", profile_name, "--pr", "0",
          "--result-file", os.path.join(ROOT, "configs/fixtures/review_no_verdict.json"), "--post"],
         capture_output=True, text=True
     )
@@ -259,13 +266,17 @@ def selftest() -> int:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Second-level review of a pull request via ywcrew.")
-    ap.add_argument("--profile", default="sample-service", help="repo profile that names the repository")
-    ap.add_argument("--pr", type=int, default=0, help="pull request number to review")
+    # Required in practice, but validated after the --selftest branch: a bare `--selftest` must be able to
+    # run without inventing a repository, while every other invocation still fails fast instead of
+    # defaulting to some arbitrary profile and pull request.
+    ap.add_argument("--profile", help="repo profile that names the repository (required unless --selftest)")
+    ap.add_argument("--pr", type=int, help="pull request number to review (required unless --selftest)")
     ap.add_argument("--backend", default="agy")
     ap.add_argument("--model", default="gemini-3.8-flash")
     ap.add_argument("--panel", action="store_true", help="use ywcrew panel instead of one backend")
     ap.add_argument("--post", action="store_true", help="post the verdict to the PR as a review")
-    ap.add_argument("--dry-run", action="store_true", help="print the brief, dispatch nothing")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="print the brief, dispatch nothing (ignored with --result-file: nothing is dispatched)")
     ap.add_argument("--diff-file", help="review a diff from a file instead of asking gh (offline)")
     ap.add_argument("--result-file", help="parse an existing `ywcrew result` JSON instead of dispatching")
     ap.add_argument("--selftest", action="store_true", help="run offline fixture assertions, then exit")
@@ -273,6 +284,9 @@ def main(argv=None) -> int:
 
     if args.selftest:
         return selftest()
+
+    if not args.profile or args.pr is None:
+        ap.error("--profile and --pr are required unless --selftest is given")
 
     profile = profile_or_die(args.profile)
     repo = profile["repo"]
