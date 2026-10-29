@@ -31,6 +31,9 @@ jobs:
         # `make check` is compileall + the dimensions that depend only on the code + the regression suite.
         # The strict marker needs loop *state* (rounds, handoff, a signed anchor) which a clone does not
         # have by design, and D08 audits an input this project does not ship, so neither is required here.
+        # This first run exercises the no-state path (a clone that never declared a cold start); the step
+        # after the cold declaration below exercises the other documented path. Both must stay green, and
+        # they test different things, so neither is redundant.
         run: make check PYTHON=python
 
       - name: Cold start — the honest verdict for a tree that has never run the loop
@@ -39,3 +42,10 @@ jobs:
         run: |
           python scripts/bootstrap_state.py --init
           python scripts/check_loop.py --strict
+
+      - name: Documented install order — declare cold, then run the full suite
+        # The README's first-run path is: bootstrap_state.py --init, then make check. After the cold
+        # declaration the history dimensions print COLD (not FAIL), so the regression suite must treat an
+        # injection into a COLD dimension as unobservable and skip it — never as a failure. This step pins
+        # that: a green build here means the documented order stays green for the next contributor.
+        run: make check PYTHON=python

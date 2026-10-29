@@ -12,10 +12,13 @@ strings leak — so the cleaning is a command:
 What it guarantees:
 * **Only tracked files** are considered — gitignored state (`artifacts/`, `handoff/`, an editor's backup)
   cannot leak by accident.
-* **Excluded paths stay out** (`course/`, the course build driver, the macOS OCR tool, and this
-  configuration, which necessarily contains the strings it removes).
-* **Identities are rewritten**, not merely deleted: a profile without a location is a profile the product
-  gate cannot use, so the example files it lands are valid and runnable.
+* **Excluded paths stay out** (`course/`). The study corpus is not part of the tool and never ships; the
+  removal rules themselves live in ``configs/public_sanitize.json`` (repository-specific strings were
+  stripped once, before publication; the `forbidden` list keeps the generic home-directory paths, and a
+  survivor fails the export — credential shapes are D07's job, not this file's).
+* **Identities are rewritten**, not merely deleted, when the configuration declares a replacement: a profile
+  without a location is a profile the product gate cannot use, so the example files it lands are valid and
+  runnable.
 * **Fail-closed:** after building, every text file is scanned for the forbidden strings. If one survives,
   the exporter prints ``PUBLIC_EXPORT_STOP_0001`` with ``file:line`` and exits 1 — the tree is left on disk
   for inspection, but it is not a release.

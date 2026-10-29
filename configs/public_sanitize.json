@@ -1,0 +1,15 @@
+{
+  "note": "What scripts/export_public.py must strip from a publication tree. The author's own absolute paths, account name, witness journal and study corpus were stripped once, before publication, so there are no repository-specific strings left to remove. What stays is the generic part: an `exclude` guard for the study corpus, and a `forbidden` list of home-directory paths, which is a leak whoever wrote it. Credential-shaped strings are deliberately NOT listed here: D07 (guardrail_no_secrets) already scans for them, and a literal PEM header in this file would trip that scanner on the repo itself. If this tree is re-seeded with private material (a product name, a card id, a scratch path), add it here: `substitutions` rewrites identities, `redact` rewrites scoped patterns, and `forbidden` lists the strings the fail-closed scan refuses to let through.",
+  "exclude": ["course/"],
+  "replace_files": {},
+  "extras": [],
+  "substitutions": [],
+  "redact": [],
+  "forbidden": [
+    "/Users/",
+    "/home/"
+  ],
+  "forbidden_allow": [
+    "configs/public_sanitize.json"
+  ]
+}

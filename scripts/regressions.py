@@ -20,6 +20,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -30,6 +31,14 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 GATE_PASS = "LOOP_ENGINEERING_PASS_0001"
 GATE_STOP = "LOOP_ENGINEERING_STOP_0001"
+# A tree that declared a cold start prints COLD, not STOP: the code dimensions are checked, the history
+# dimensions (D03, D04, D05, D09, D12) are named but refused. An injection into one of those dimensions
+# is therefore unobservable — the gate short-circuits it before and after — and must be skipped, never
+# counted as a pass or a fail.
+GATE_COLD = "LOOP_ENGINEERING_COLD_0001"
+# The dimensions that describe *history* (rounds, handoff, the signed anchor). They may be red or COLD in a
+# tree that has never run the loop; every other dimension describes the code and must be green everywhere.
+STATE_DIMS = {"D03", "D04", "D05", "D09", "D12"}
 PASS_MARKER = "REGRESSION_SUITE_PASS_0001"
 STOP_MARKER = "REGRESSION_SUITE_STOP_0001"
 IGNORE = shutil.ignore_patterns(".git", "__pycache__", "*.pyc", "ywcrew")
@@ -42,19 +51,33 @@ def make_copy() -> str:
     return dst
 
 
-def run_gate(repo: str) -> tuple[str, list[str], str]:
+def run_gate(repo: str) -> tuple[str, list[str], list[str], str]:
     proc = subprocess.run(
         [sys.executable, os.path.join(repo, "scripts", "check_loop.py"), "--root", repo],
         capture_output=True, text=True,
     )
     out = proc.stdout
-    marker = GATE_PASS if GATE_PASS in out else GATE_STOP
+    # Classify on the LAST non-empty line, never on a substring anywhere in stdout: dimension details quote
+    # markers by name (D01's failure reason literally contains "{MARKER_PASS}"), so an unanchored `in out`
+    # turns a red gate into a "pass" and a case into a false FAIL. The gate always prints its marker last.
+    lines = [line.strip() for line in out.splitlines() if line.strip()]
+    last = lines[-1] if lines else ""
+    if last == GATE_PASS:
+        marker = GATE_PASS
+    elif last == GATE_COLD:
+        marker = GATE_COLD
+    else:
+        marker = GATE_STOP
     failures = []
     for line in out.splitlines():
         head = line.split()[0] if line.split() else ""
         if head.startswith("D") and "[FAIL]" in line:
             failures.append(head)
-    return marker, failures, out
+    # Read the dimensions the gate refuses in a cold tree from their own status column, not from the prose
+    # line that summarises them: ``D12 anchor_witness   [COLD] cold start: ...`` is a stable contract, while
+    # the summary sentence is free to be reworded (and its "dimension(s)" would trap a naive parenthesis).
+    cold_dims = re.findall(r"^(D\d{2})\s+\S.*\[COLD\]", out, re.M)
+    return marker, failures, cold_dims, out
 
 
 # ------------------------------------------------------------------ injections
@@ -337,23 +360,35 @@ def main() -> int:
     # skipped with that reason, and injections that tamper with absent state are skipped instead of
     # failing. What remains is still a real attack: the injected dimension must be red in both cases.
     baseline_repo = make_copy()
-    baseline_marker, baseline_red, _ = run_gate(baseline_repo)
+    baseline_marker, baseline_red, baseline_cold, _ = run_gate(baseline_repo)
     shutil.rmtree(os.path.dirname(baseline_repo), ignore_errors=True)
     baseline_green = baseline_marker == GATE_PASS
 
     results: list[dict] = []
+    # A red *code* dimension in the untouched copy is not "history unprovable" — it is a broken tree, and it
+    # invalidates every injection below: the suite would compare attacks against a gate that is already down.
+    # History dimensions may be red in a tree that has never run the loop; code dimensions may not.
+    baseline_broken = [d for d in baseline_red if d not in STATE_DIMS]
+    if baseline_marker == GATE_STOP and baseline_broken:
+        results.append({"case": "baseline: the untouched copy is already red", "ok": False,
+                        "marker": baseline_marker, "failed_dims": baseline_broken})
+        print(f"[FAIL] baseline: the untouched copy is already red -> {', '.join(baseline_broken)}")
+        print("        a red code dimension invalidates every injection: fix the tree, then re-run")
+
     for name, inject, want_marker, want_dims in CASES:
         repo = make_copy()
         try:
             if want_marker == GATE_PASS and not baseline_green:
                 # The only case that expects green: not applicable where the loop never ran. Skipped with
                 # the reason, never silently counted as a pass.
+                state = "cold" if baseline_cold else "red"
+                dims = ", ".join(baseline_cold) if baseline_cold else (", ".join(baseline_red) or "none")
                 results.append({"case": name, "ok": True, "skipped": True,
-                                "reason": f"baseline not green: {', '.join(baseline_red) or 'none'}",
+                                "reason": f"baseline not green ({state}: {dims})",
                                 "marker": baseline_marker, "failed_dims": baseline_red})
                 print(f"[skip] {name}")
-                print(f"        baseline is red ({', '.join(baseline_red) or 'none'}): this tree has "
-                      "never run the loop, so there is no green baseline to break")
+                print(f"        baseline is {state} ({dims}): this tree has never run the loop, "
+                      "so there is no green baseline to break")
                 continue
             try:
                 inject(repo)
@@ -371,7 +406,19 @@ def main() -> int:
                 print(f"[FAIL] {name}")
                 print(f"        injector error: {exc.__class__.__name__}: {exc}")
                 continue
-            marker, failures, out = run_gate(repo)
+            marker, failures, cold_dims, out = run_gate(repo)
+            # A cold tree refuses to evaluate its own history dimensions: they print COLD before and after
+            # any injection, so a case whose expected dimensions are all COLD is unobservable here. That is
+            # not a pass (the injection never ran against a real dimension) and not a fail (the gate is
+            # doing exactly what it promises) — it is skipped with the reason, like a missing state file.
+            if cold_dims and want_dims and all(d in cold_dims for d in want_dims):
+                results.append({"case": name, "ok": True, "skipped": True,
+                                "reason": f"unobservable in a cold tree: {'/'.join(want_dims)} is COLD",
+                                "marker": marker, "failed_dims": failures})
+                print(f"[skip] {name}")
+                print(f"        {'/'.join(want_dims)} is COLD in this tree: the gate refuses to evaluate "
+                      "its own history, so the injection cannot be observed")
+                continue
             ok = marker == want_marker and (not want_dims or any(d in failures for d in want_dims))
             results.append({"case": name, "ok": ok, "marker": marker, "failed_dims": failures})
             status = "ok  " if ok else "FAIL"

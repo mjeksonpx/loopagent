@@ -834,6 +834,25 @@ def dim_anchor_witness(root):
     that makes a coordinated rewrite visible, and it is deliberately not required here — this gate stays
     local and offline.
     """
+    # A tree with no trusted public key can never verify a signed verdict, and that is true whether or not
+    # this tree has ever run the loop. Checked before the cold short-circuit on purpose: ``allowed_signers``
+    # is a tracked configuration file, not loop state, so an emptied signer list must redden here instead of
+    # hiding behind "history unprovable" — otherwise the regression suite cannot observe that attack in a
+    # cold tree and skips it.
+    trusted = []
+    signers_path = os.path.join(root, ALLOWED_SIGNERS_REL)
+    if os.path.exists(signers_path):
+        try:
+            with open(signers_path, encoding="utf-8") as fh:
+                trusted = [line for line in fh
+                           if line.strip() and not line.lstrip().startswith("#")]
+        except OSError:
+            trusted = []
+    if not trusted:
+        return Dim("D12", "anchor_witness", False, "no trusted signer",
+                   reasons=[f"{ALLOWED_SIGNERS_REL}: no trusted public key — with an empty signer list "
+                            "nothing can be verified, so nothing may be accepted"])
+
     missing_state = [rel for rel in (ANCHOR_SIG_REL, WITNESS_RECORD_REL)
                      if not os.path.exists(os.path.join(root, rel))]
     if cold_start(root) and missing_state:

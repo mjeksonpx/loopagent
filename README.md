@@ -11,7 +11,7 @@ $ python3 scripts/check_loop.py --strict
 D01 contract_skill             [OK] contract, marker and the single-door CLI rule are stated
 D02 sources_of_truth           [OK] AGENTS.md + PLANS.md + README.md carry the contract
 ...
-dims: 13 ok, 0 fail, 0 skip (mandatory: 11, optional: 2)
+dims: 13 ok, 0 fail, 1 n/a (D08) (mandatory: 12, optional: 2)
 LOOP_ENGINEERING_PASS_0001
 ```
 
@@ -46,7 +46,7 @@ that class of cheating.
 ## Install
 
 ```bash
-git clone <this repo> && cd loopgate
+git clone <this repo> && cd loopagent
 python3 scripts/doctor.py              # what this interpreter can run, before a yellow check is a mystery
 python3 scripts/bootstrap_state.py --init   # declare the cold start instead of inventing a history
 python3 scripts/check_loop.py --strict # -> LOOP_ENGINEERING_COLD_0001: code green, history unprovable
@@ -72,6 +72,9 @@ python3 scripts/assert_dims.py --require D01 D02 D06 D07 D10 D11 D13
 python3 scripts/regressions.py
 #  -> REGRESSION_SUITE_PASS_0001. The suite injects 26 defects into copies of this repository and proves
 #     the gate reddens on the expected dimension each time. A gate nobody attacks is a slogan.
+#     Honest accounting: 11 of the 26 target loop *state* (rounds, handoff, the signed anchor) that a
+#     fresh clone does not carry, so they print [skip] with the reason — never counted as a pass, never
+#     a fail. The other 15 attack code dimensions and must redden here, in any tree.
 ```
 
 The regression suite is the point of the project. It is easy to write a check that prints OK; it is rare to
