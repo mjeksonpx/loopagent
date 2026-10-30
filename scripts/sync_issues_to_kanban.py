@@ -11,13 +11,17 @@ What the bridge guarantees
 --------------------------
 * **One task = one PR**: one open issue produces exactly one kanban task, whose body is the worker brief
   rendered by ``scripts/worker_brief.py`` (mandatory evidence bundle included, not implied).
-* **Idempotence**: the task carries the issue-derived idempotency key ``gh-<owner>-<repo>-<n>``; a second
-  run reports the task as already queued instead of minting a duplicate.
+* **Idempotence**: the task carries the issue-derived idempotency key ``<exporter>-<owner>-<repo>-<n>``;
+  a second run reports the task as already queued instead of minting a duplicate. The exporter prefix is
+  part of the key, so a file export can never collide with a live ``gh`` key space it does not own.
 * **Fail-closed**: an issue without acceptance criteria is *not* queued (it is reported as needing
   triage), an unknown repository profile is refused, and ``--apply`` refuses to queue work that no
   worker could execute (no workspace/project target configured) — a queue that cannot run is a lie.
-* **Read-only by default**: mutations happen only with ``--apply``. ``--issues-file`` is an offline
-  fixture source and can never be applied.
+* **Read-only by default**: mutations happen only with ``--apply``. ``--issues-file`` is a *fixture*
+  unless whoever exported it says otherwise with ``--exported-by <name>``; an undeclared file can only be
+  printed, never applied. A declared file is authoritative for the exporter it names: its keys carry that
+  name, ``--target backlog`` is allowed for any exporter, and ``--target kanban`` stays restricted to
+  ``gh`` exports (a queue that starts unattended workers is a claim about real issue numbers).
 
 Left to the triage role (stage 5): the semantic half of validity — whether the reported behaviour is
 reproducible at all. The bridge enforces only the machine-checkable subset (labels, body substance,
@@ -27,6 +31,8 @@ Usage
 -----
     python3 scripts/sync_issues_to_kanban.py --profile sample-service                    # dry run, live gh
     python3 scripts/sync_issues_to_kanban.py --profile sample-service --issues-file configs/fixtures/issues_sample.json
+    python3 scripts/sync_issues_to_kanban.py --profile sample-service --issues-file issues.json \
+        --exported-by gh --apply --target backlog      # a file that IS the source of truth
     python3 scripts/sync_issues_to_kanban.py --profile sample-service --apply            # queue for real
     python3 scripts/sync_issues_to_kanban.py --profile sample-service --selftest         # prove the write path
 
@@ -128,8 +134,34 @@ def classify(issue: dict, profile: dict) -> tuple[str, str]:
 ESTIMATES_REL = "configs/task_estimates.json"
 
 
-def issue_key(profile: dict, number: int) -> str:
-    return "gh-" + profile["repo"].replace("/", "-") + f"-{number}"
+EXPORTER_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,31}$")
+# Names that would put a file's keys inside a key space this bridge already reserves. `fixture` is the
+# unapplied source, and `selftest` belongs to the write-path check; neither may become authoritative,
+# otherwise the guard that stops a fixture from shadowing real issue numbers would be removable by a flag.
+RESERVED_EXPORTERS = {"fixture", "selftest", "dry-run", "none"}
+
+
+def issue_key(profile: dict, number: int, exporter: str = "gh") -> str:
+    """Idempotency key: the exporter is part of the identity, not an afterthought.
+
+    A `gh` export and the live `gh` path share the `gh-` prefix on purpose — the same issue queued from a
+    file and from the CLI must resolve to one task. Any other exporter gets its own prefix, so a Jira or
+    spreadsheet export can never shadow a real GitHub issue number.
+    """
+    return f"{exporter}-" + profile["repo"].replace("/", "-") + f"-{number}"
+
+
+def exporter_error(name: str) -> str | None:
+    """Why this name cannot declare a file authoritative, or None when it can."""
+    slug = (name or "").strip().lower()
+    if not slug:
+        return "empty name"
+    if slug in RESERVED_EXPORTERS:
+        return (f"`{slug}` is reserved for the unapplied fixture source; declaring it authoritative would "
+                f"put a file's keys in a key space the bridge already owns")
+    if not EXPORTER_RE.fullmatch(slug):
+        return f"`{name}` is not a usable exporter name (expected lowercase letters, digits and dashes)"
+    return None
 
 
 def load_estimates(root: str = ROOT) -> dict:
@@ -354,7 +386,12 @@ def main(argv=None) -> int:
     ap.add_argument("--profile", required=True, help="repository profile from configs/repo_profiles.json")
     ap.add_argument("--root", default=ROOT)
     ap.add_argument("--limit", type=int, default=30)
-    ap.add_argument("--issues-file", help="offline fixture source (never applied)")
+    ap.add_argument("--issues-file", help="read issues from a JSON file instead of the GitHub CLI; a file "
+                                          "is a fixture (print-only) until --exported-by marks it as the "
+                                          "authoritative export of a named tracker")
+    ap.add_argument("--exported-by", metavar="NAME",
+                    help="declare the --issues-file an authoritative export made by NAME (e.g. gh, jira); "
+                         "the name becomes the idempotency-key prefix")
     ap.add_argument("--apply", action="store_true", help="actually create the kanban tasks")
     ap.add_argument("--target", choices=["kanban", "backlog"], default="kanban",
                     help="where a card goes: 'kanban' hands it to the Hermes dispatcher, 'backlog' writes "
@@ -376,7 +413,20 @@ def main(argv=None) -> int:
         print(PASS_MARKER if rc == 0 else STOP_MARKER)
         return rc
 
-    source = "fixture" if args.issues_file else "github"
+    # A file is a fixture until its exporter is declared. The declaration is what changes both the answer
+    # to "--apply may I?" and the key space, so a dry run cannot silently become a queue by habit.
+    exporter = (args.exported_by or "").strip().lower()
+    source = "github" if not args.issues_file else ("file" if exporter else "fixture")
+    if args.exported_by and not args.issues_file:
+        print("refusing --exported-by without --issues-file: a live `gh` read is already authoritative, "
+              "and the flag would give the same issues a second key space", file=sys.stderr)
+        print(STOP_MARKER)
+        return 1
+    export_error = exporter_error(args.exported_by) if args.exported_by else None
+    if export_error:
+        print(f"refusing --exported-by {args.exported_by!r}: {export_error}", file=sys.stderr)
+        print(STOP_MARKER)
+        return 1
     try:
         issues = (fixture_issues(args.issues_file) if args.issues_file
                   else gh_issues(profile["repo"], args.limit))
@@ -394,8 +444,16 @@ def main(argv=None) -> int:
         return 1
 
     if args.apply and source == "fixture":
-        print("refusing --apply with --issues-file: fixture numbers are not real issues, and their "
-              "idempotency keys would shadow the real ones", file=sys.stderr)
+        print("refusing --apply with --issues-file: an undeclared file is a fixture, and fixture numbers "
+              "are not real issues. Mark it authoritative with --exported-by <name> (e.g. "
+              "--exported-by gh for a `gh issue list --json` export) if it is the real source.",
+              file=sys.stderr)
+        print(STOP_MARKER)
+        return 1
+    if args.apply and source == "file" and args.target == "kanban" and exporter != "gh":
+        print(f"refusing --apply --target kanban for exporter {exporter!r}: starting unattended workers is "
+              f"a claim about real issue numbers, so the queue accepts only `--exported-by gh`; use "
+              f"--target backlog for other trackers", file=sys.stderr)
         print(STOP_MARKER)
         return 1
     target_error = apply_target_error(profile) if (args.apply and args.target == "kanban") else None
@@ -413,6 +471,8 @@ def main(argv=None) -> int:
         "profile": args.profile,
         "repo": profile["repo"],
         "source": source,
+        "exported_by": exporter or None,
+        "key_prefix": exporter or "gh",
         "mode": "apply" if args.apply else "dry-run",
         "generated_at": dt.datetime.now().astimezone().isoformat(timespec="seconds"),
         "evidence_bundle": [i["command"] for i in worker_brief.bundle_commands(profile)],
@@ -444,7 +504,7 @@ def main(argv=None) -> int:
             continue
 
         brief = worker_brief.render_brief(args.profile, profile, issue)
-        key = issue_key(profile, number)
+        key = issue_key(profile, number, exporter or "gh")
         assignee = assignee_for(issue, profile)
         estimate = (load_estimates(args.root).get(assignee) or {})
         cap = estimate.get("max_runtime")
