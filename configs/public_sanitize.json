@@ -3,7 +3,12 @@
   "exclude": ["course/"],
   "replace_files": {},
   "extras": [],
-  "substitutions": [],
+  "substitutions": [
+    {
+      "find": "mjeksonpx/loop-witness",
+      "replace": "example/loop-witness"
+    }
+  ],
   "redact": [],
   "forbidden": [
     "/Users/",
