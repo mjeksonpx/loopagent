@@ -48,6 +48,7 @@ check:
 	$(PYTHON) scripts/assert_dims.py --require D01 D02 D06 D07 D10 D11 D13
 	$(PYTHON) scripts/regressions.py
 	$(PYTHON) scripts/review_pr.py --selftest
+	$(PYTHON) scripts/guard_card.py --selftest
 
 ci: check
 
