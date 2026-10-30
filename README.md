@@ -150,6 +150,8 @@ scripts/check_product.py        product gate: user-facing scenarios with a state
 scripts/regressions.py          26 injections: proves the gate reddens on real defects
 scripts/worker_brief.py         renders/verifies the worker brief (evidence bundle inside)
 scripts/sync_issues_to_kanban.py issues -> queue (--target kanban | backlog)
+scripts/guard_card.py           per-card budget (tokens, runs, progress clock); --snapshot reads a JSON
+                                queue snapshot, so the rule works without a particular runtime
 scripts/anchor_witness.py       signs the verdict and publishes its digest to an external journal
 scripts/loop_watch.py           fingerprints the gate; silent unless something changed (cron-friendly)
 scripts/export_public.py        assembles a publication-ready tree, fail-closed
