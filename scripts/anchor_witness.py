@@ -152,13 +152,24 @@ def publish(root: str, config: dict, verbose: bool = False) -> tuple[bool, str]:
     dest = config["destination"]
     repo, issue = dest["repo"], str(dest["issue"])
     witness = json.load(open(os.path.join(root, WITNESS_REL), encoding="utf-8"))
+    # The entry carries the exact bytes that were signed, not a path into this checkout: a reader of the
+    # journal has no tree to resolve, and a digest nobody can recompute is an assertion, not a check. The
+    # payload on disk is re-hashed first, so publishing cannot describe a signature that is no longer the
+    # one that was made.
+    with open(os.path.join(root, VERDICT_REL), "rb") as fh:
+        payload = fh.read()
+    if hashlib.sha256(payload).hexdigest() != witness["payload_sha256"]:
+        return False, (f"{VERDICT_REL} no longer hashes to the signed digest "
+                       f"({witness['payload_sha256'][:16]}…) — re-sign before publishing")
     body = (f"<!-- {config['marker']} -->\n"
             f"**{config['marker']}**\n\n"
             f"- verdict_hash: `{witness['verdict_hash']}`\n"
-            f"- signed message: `{witness['signed_message']}` (sha256 `{witness['payload_sha256']}`)\n"
+            f"- signed message, verbatim:\n\n"
+            f"```text\n{payload.decode('utf-8').strip()}\n```\n\n"
+            f"- payload sha256: `{witness['payload_sha256']}`\n"
             f"- signer: `{witness['signer_fingerprint']}` ({witness['identity']}, namespace "
             f"`{witness['namespace']}`)\n"
-            f"- signature: `{witness['signature_file']}` (verifiable against `{config['allowed_signers']}`)\n")
+            f"- signature: `{witness['signature_file']}` (verify against `{config['allowed_signers']}`)\n")
     token = github_token()
     code, existing = gh(["api", f"repos/{repo}/issues/{issue}/comments", "--paginate",
                          "--jq", ".[].body"], token)
