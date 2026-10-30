@@ -85,10 +85,14 @@ STATUS_PAGE_SCRIPT = "scripts/render_status_page.py"
 # The brief must itself carry the evidence rule, and the validator must be able to reject a bundle
 # that is incomplete or failing — the exact gap that produced the first PR's REJECT.
 BRIEF_REQUIREMENTS = ["evidence bundle", "verbatim", "exit", "one task = one pr", "NOT RUN"]
-# Binding anchor for D05: written whenever every dimension EXCEPT D05 is green, so a dimension never
-# has to certify itself. It records the verdict hash of that all-other-green set.
+# Binding anchor: written whenever every dimension EXCEPT the anchor's own certifiers is green, so a
+# dimension never has to certify itself. Two dimensions read the anchor instead of the tree — D05 binds the
+# handoff to it and D12 verifies its signature — so both are excluded from the anchor's verdict hash and
+# from the "every other dimension is green" gate. Without that exclusion a tree whose anchor was lost could
+# never mint one again: D12 needs a signature, a signature needs the anchor, the anchor needs D12 green.
 PASS_REL = "artifacts/loop_gate_pass.json"
 BINDING_DIM = "D05"
+SELF_CERTIFYING_DIMS = {BINDING_DIM, "D12"}
 
 # Narrow patterns only: a real shell/subprocess call to a CLI agent. Prose mentions are fine.
 DIRECT_CLI_PATTERNS = [
@@ -328,11 +332,11 @@ def dim_rounds(root, min_rounds=3):
     return Dim("D04", "rounds", not reasons, f"{len(names)} round artifact(s) with bound evidence", reasons=reasons)
 
 
-def _verdict_hash(payload, exclude=(BINDING_DIM,)):
+def _verdict_hash(payload, exclude=SELF_CERTIFYING_DIMS):
     """Stable hash over a run's verdict set (statuses only, no timestamps or paths).
 
-    ``D05`` is excluded: the handoff-binding dimension cannot certify itself, so the hash covers
-    exactly the dimensions that do not depend on the handoff.
+    The self-certifying dimensions (``D05`` binds the handoff to the anchor, ``D12`` verifies its
+    signature) are excluded: the hash covers exactly the dimensions that read the tree, not the anchor.
     """
     stable = {
         "marker": payload.get("marker"),
@@ -415,7 +419,8 @@ def dim_handoff(root, other_pairs=None):
                 reasons.append(f"{anchor_rel}: all_other_dimensions_ok is not true")
             anchor_statuses = {d.get("id"): d.get("status") for d in anchor.get("dimensions", [])}
             anchor_pairs = {d.get("id"): (bool(d.get("ok")), bool(d.get("skip")))
-                            for d in anchor.get("dimensions", []) if d.get("id") != BINDING_DIM}
+                            for d in anchor.get("dimensions", [])
+                            if d.get("id") not in SELF_CERTIFYING_DIMS}
             record = {"marker": MARKER_PASS,
                       "dimensions": [{"id": k, "status": v} for k, v in anchor_statuses.items()]}
             actual = _verdict_hash(record)
@@ -423,7 +428,7 @@ def dim_handoff(root, other_pairs=None):
                 reasons.append(f"{anchor_rel}: recorded verdict hash {anchor.get('verdict_hash')} "
                                f"does not match its own contents {actual}")
             if other_pairs is not None:
-                expected = {k: v for k, v in other_pairs.items() if k != BINDING_DIM}
+                expected = {k: v for k, v in other_pairs.items() if k not in SELF_CERTIFYING_DIMS}
                 if all(ok for ok, _ in expected.values()):
                     # The machine is green right now: the anchor must describe exactly this run's state,
                     # otherwise it was written for a different (or invented) one.
@@ -1208,14 +1213,14 @@ def main(argv=None):
             # transcript is a convenience, never a prerequisite: the verdict must still be printed.
             print(f"warning: could not write report ({exc.__class__.__name__}: {exc}); verdict unchanged")
 
-    # D05 binding anchor: written whenever every dimension except D05 is green, because the binding
-    # dimension must not certify itself. The handoff must quote this hash.
-    if not cold_skips and not [d for d in failures if d.ident != BINDING_DIM]:
+    # Binding anchor: written whenever every dimension except the ones that read the anchor is green,
+    # because a dimension must not certify itself. The handoff must quote this hash.
+    if not cold_skips and not [d for d in failures if d.ident not in SELF_CERTIFYING_DIMS]:
         anchor = {
             "marker": MARKER_PASS,
             "generated_at": __import__("datetime").datetime.now().astimezone().isoformat(timespec="seconds"),
             "all_other_dimensions_ok": True,
-            "excluded_from_hash": BINDING_DIM,
+            "excluded_from_hash": sorted(SELF_CERTIFYING_DIMS),
             "gate_command": GATE_CMD,
             "dimensions": [{"id": d.ident, "name": d.title, "status": statuses[i],
                             "ok": d.ok, "skip": d.skip}
