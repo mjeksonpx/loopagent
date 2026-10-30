@@ -94,7 +94,11 @@ prove that the check can fail.
    ```
 
    `--target kanban` hands the card to the Hermes dispatcher instead (see `AGENTS.md`); `--target backlog`
-   needs no execution backend at all.
+   needs no execution backend at all. Issues do not have to come from GitHub: `--issues-file issues.json
+   --exported-by jira` declares a file the authoritative export of a named tracker, and its idempotency
+   keys carry that name (`jira-<owner>-<repo>-<n>`). Without `--exported-by` a file is only a fixture and
+   `--apply` is refused; `--target kanban` stays restricted to `--exported-by gh`, because starting
+   unattended workers is a claim about real issue numbers.
 3. **Check the transcript the worker sends back**:
 
    ```bash
