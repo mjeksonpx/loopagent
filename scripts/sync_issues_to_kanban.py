@@ -465,7 +465,13 @@ def main(argv=None) -> int:
     if args.target == "backlog":
         existing = backlog_existing(args.root, args.profile) if args.apply else {}
     else:
-        existing = queued_numbers(existing_tasks(), args.profile) if args.apply and source == "github" else {}
+        # Any source whose keys live in the `gh` space must consult the board before minting: a file
+        # export is authoritative for the same issue numbers a live read would return, so it needs the
+        # same "already queued" answer. Without this the bridge reported QUEUED for work the board had
+        # already accepted (found by a live `mode: afk` run, where the kanban target really creates cards).
+        dedupe = args.apply and args.target == "kanban" and source in ("github", "file") and (
+            source == "github" or exporter == "gh")
+        existing = queued_numbers(existing_tasks(), args.profile) if dedupe else {}
     report = {
         "marker": PASS_MARKER,
         "profile": args.profile,
@@ -547,6 +553,13 @@ def main(argv=None) -> int:
             continue
         finally:
             os.remove(tmp)
+        if created.get("id") in set(existing.values()) or created.get("status") == "existing":
+            # The board answered idempotently: nothing new was minted, so this card must not consume the
+            # max_cards budget of this poll either.
+            entry["task"] = created.get("id")
+            report["already_queued"].append({"issue": number, "task": created.get("id")})
+            print(f"  #{number:<5} QUEUED      {title[:60]} — task {created.get('id')} (idempotent)")
+            continue
         created_count += 1
         entry["task"] = created.get("id")
         entry["task_status"] = created.get("status")
