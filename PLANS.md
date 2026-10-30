@@ -420,8 +420,10 @@ README на первом месте; лицензия и CI на месте; п�
     `acceptance: strict-complete`, `LOOP_ENGINEERING_PASS_0001`, `exit=0`, хэш якоря `fe0dd8a6d8ff7640`;
     `anchor_witness.py verify` → `ANCHOR_WITNESS_PASS_0001`; `make check` → 26 ok / 0 failed / 1 skipped,
     `REGRESSION_SUITE_PASS_0001` (кейсы R19/R21/R24 по-прежнему ловят подделку якоря), `PR_REVIEW_PASS_0001`.
-    Остаток: фикс гейта **не закоммичен** — он меняет семантику приёмки и ждёт ратификации оператором;
-    внешний свидетель (`anchor_witness.py publish`) остаётся сетевым шагом оператора.
+    Ратификация: фикс гейта ушёл в `main` отдельным PR #8 (`4c6fd91`) после ревью
+    `2026-10-29-8bef6edb`; PR #5/#6 закрыли issues #1/#2, PR #7 внёс эту запись.
+    Остаток: внешний свидетель (`anchor_witness.py publish` / `check-external`) остаётся сетевым шагом
+    оператора — офлайн-гейт его намеренно не требует.
 
 ## Критерий приёмки всего проекта
 
