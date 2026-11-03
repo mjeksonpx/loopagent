@@ -4,7 +4,7 @@
 
 PYTHON ?= python3
 
-.PHONY: help doctor guard ledger health gate product visual regress check ci export test clean
+.PHONY: help doctor guard ledger health gate product visual parity regress check ci export test clean
 
 help:
 	@echo "make doctor    what this interpreter can run (jsonschema, Chrome, gh, git)"
@@ -14,6 +14,7 @@ help:
 	@echo "make gate      technical gate (strict)     -> LOOP_ENGINEERING_PASS_0001"
 	@echo "make product   product acceptance gate     -> PRODUCT_ACCEPTANCE_PASS_0001"
 	@echo "make visual    visual check (headless Chrome)"
+	@echo "make parity    two checkouts must not drift -> TREE_PARITY_PASS_0001 (POLICY=<json>)"
 	@echo "make regress   the gate's own regression suite (injects defects)"
 	@echo "make check     what CI runs: compile + code dimensions + regressions"
 	@echo "make export    build a publication-ready tree under dist/public"
@@ -40,6 +41,10 @@ product:
 visual:
 	$(PYTHON) scripts/check_visual.py
 
+parity:
+	@test -n "$(POLICY)" || { echo "make parity needs POLICY=<json>; see configs/tree_parity.example.json"; exit 2; }
+	$(PYTHON) scripts/tree_parity.py --policy $(POLICY)
+
 regress:
 	$(PYTHON) scripts/regressions.py
 
@@ -49,6 +54,12 @@ check:
 	$(PYTHON) scripts/regressions.py
 	$(PYTHON) scripts/review_pr.py --selftest
 	$(PYTHON) scripts/guard_card.py --selftest
+	$(PYTHON) scripts/tree_parity.py --selftest
+	@if [ -f configs/tree_parity.json ]; then \
+		$(PYTHON) scripts/tree_parity.py --policy configs/tree_parity.json; \
+	else \
+		echo "tree parity: no configs/tree_parity.json here - this checkout is not compared against another"; \
+	fi
 
 ci: check
 
