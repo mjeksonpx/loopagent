@@ -37,6 +37,8 @@ import shutil
 import sys
 import tempfile
 
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 PASS_MARKER = "TREE_PARITY_PASS_0001"
 STOP_MARKER = "TREE_PARITY_STOP_0001"
 
@@ -81,17 +83,29 @@ def first_difference(a_path: str, b_path: str) -> str:
 
 
 def reason_for(rel: str, may_differ: dict) -> str:
-    """The declared reason for ``rel``, whether it was named exactly or through a glob."""
+    """The declared reason for ``rel``, whether it was named exactly or through a glob.
+
+    A blank reason is not a reason: such an entry does not cover the path at all, so the path is
+    classified normally *and* the empty declaration is reported on its own. Returning ``"  "`` here would
+    let a whitespace-only entry hide a real difference behind a finding about the pattern instead of the
+    file — the reviewer of round 05's pull request named exactly that.
+    """
     if rel in may_differ:
-        return may_differ[rel]
+        return may_differ[rel] if may_differ[rel].strip() else ""
     for pattern, reason in may_differ.items():
-        if fnmatch.fnmatch(rel, pattern):
+        if fnmatch.fnmatch(rel, pattern) and reason.strip():
             return reason
     return ""
 
 
 def compare(a_root: str, b_root: str, must_match, may_differ: dict) -> list:
-    """Every finding between the two trees: drift, missing, unclassified, unexplained, overlap."""
+    """Every finding between the two trees: drift, missing, unclassified, unexplained.
+
+    ``may_differ`` deliberately covers **presence** as well as content: a development-only script exists in
+    one checkout and not the other, and that is the normal shape of such a policy rather than an oversight.
+    A policy that wants additions and deletions policed says so by putting the path under ``must_match``
+    only, where a file present in one tree is a ``missing`` finding.
+    """
     a_files, b_files = walk(a_root), walk(b_root)
     findings = []
     for rel in sorted(set(a_files) | set(b_files)):
@@ -173,6 +187,48 @@ def selftest() -> int:
     case("unclassified drift stops",
          {"scripts/x.py": "a\n", "README.md": "one\n"}, {"scripts/x.py": "a\n", "README.md": "two\n"},
          ["scripts/*.py"], {}, False)
+    # Policy loading is a second surface, and a file that parses but says nothing is worse than no file.
+    tmp = tempfile.mkdtemp(prefix="parity-policy-")
+    try:
+        dict_policy = os.path.join(tmp, "dict.json")
+        with open(dict_policy, "w", encoding="utf-8") as fh:
+            json.dump({"a": "/x", "b": "/y", "must_match": ["*.py"],
+                       "may_differ": {"p.py": "a written reason", "q.py": "   "}}, fh)
+        loaded = load_policy(dict_policy)
+        cases.append(("policy file: roots, rules and reasons load",
+                      loaded["a"] == "/x" and loaded["b"] == "/y"
+                      and loaded["must_match"] == ["*.py"]
+                      and loaded["may_differ"]["p.py"] == "a written reason", True, loaded))
+        cases.append(("policy file: a blank reason stays blank so it can be reported",
+                      loaded["may_differ"]["q.py"] == "", True, loaded["may_differ"]))
+        list_policy = os.path.join(tmp, "list.json")
+        with open(list_policy, "w", encoding="utf-8") as fh:
+            json.dump({"a": "/x", "b": "/y", "must_match": [],
+                       "may_differ": [{"path": "r.py", "reason": "why"}]}, fh)
+        loaded_list = load_policy(list_policy)
+        cases.append(("policy file: the list form loads too",
+                      loaded_list["may_differ"] == {"r.py": "why"}, True, loaded_list["may_differ"]))
+        a2, b2 = os.path.join(tmp, "a2"), os.path.join(tmp, "b2")
+        _write(a2, "scripts/x.py", "one\n")
+        _write(b2, "scripts/x.py", "two\n")
+        hidden = compare(a2, b2, ["scripts/*.py"], {"scripts/*.py": "  "})
+        kinds = [kind for kind, _, _ in hidden]
+        cases.append(("blank-reason exception still reports the file itself, not only the pattern",
+                      "drift" in kinds and "unexplained-exception" in kinds, True, hidden))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    example = os.path.join(HERE, "configs", "tree_parity.example.json")
+    if os.path.exists(example):
+        shipped = load_policy(example)
+        cases.append(("the shipped example policy parses and explains every exception",
+                      bool(shipped["must_match"])
+                      and all(reason.strip() for reason in shipped["may_differ"].values()),
+                      True, shipped["may_differ"]))
+    else:
+        cases.append(("the shipped example policy parses and explains every exception", False, True,
+                      "configs/tree_parity.example.json is missing"))
+
     failed = [name for name, ok, _, _ in cases if not ok]
     for name, ok, _, findings in cases:
         print(f"[{'ok  ' if ok else 'FAIL'}] {name}" + ("" if ok else f"  -> {findings}"))
@@ -181,7 +237,7 @@ def selftest() -> int:
         print(STOP_MARKER)
         return 1
     falsifications = sum(1 for _, _, expect_pass, _ in cases if not expect_pass)
-    print(f"selftest: {len(cases)} case(s), {falsifications} of them about saying no")
+    print(f"selftest: {len(cases)} case(s), {falsifications} of them asserting a stop")
     print(PASS_MARKER)
     return 0
 

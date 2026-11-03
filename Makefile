@@ -42,6 +42,7 @@ visual:
 	$(PYTHON) scripts/check_visual.py
 
 parity:
+	@test -n "$(POLICY)" || { echo "make parity needs POLICY=<json>; see configs/tree_parity.example.json"; exit 2; }
 	$(PYTHON) scripts/tree_parity.py --policy $(POLICY)
 
 regress:
