@@ -1,0 +1,16 @@
+{
+  "note": "Example parity policy for a project that is developed in one checkout and published from another. Copy it to configs/tree_parity.json (gitignored by convention in the tree that holds the real paths), fill in the two roots, then run `make parity POLICY=configs/tree_parity.json`. Every may-differ entry needs a reason: an exception without one is reported as drift regardless of the paths involved. Anything that differs and is covered by no rule at all is reported as unclassified drift, so a new file cannot be added to one checkout and forgotten in the other.",
+  "a": "/path/to/development/tree",
+  "b": "/path/to/published/tree",
+  "must_match": [
+    "scripts/*.py",
+    "Makefile",
+    ".github/workflows/*.yml",
+    "pyproject.toml"
+  ],
+  "may_differ": {
+    "scripts/private_tool.py": "development-only tooling that is not published",
+    "configs/*": "the development tree names real targets; the published tree carries sanitized ones",
+    "README.md": "the published README is rewritten for strangers"
+  }
+}
