@@ -96,7 +96,8 @@ scripts/sync_issues_to_kanban.py  issues → очередь: --target kanban (д
 configs/repo_profiles.json        контракт репозитория-цели: обязательные команды, PR-правила, assignee
 configs/card_budget.json          лимиты расхода по ролям (стартовые значения, меряются по завершённым ранам)
 configs/public_sanitize.json      что исключить/подменить/запретить при публикации
-loopgate/                 одно имя на все гейты: `python3 -m loopgate gate` (сами скрипты не переписаны)
+loopgate/                 одно имя на все гейты: `python3 -m loopgate gate` (сами скрипты не переписаны);
+                          `--repo PATH` до имени команды гоняет гейт по чужому чекауту того же layout
 Makefile                  make doctor | guard | gate | product | visual | regress | check | export
 pyproject.toml            requires-python >=3.9, entry point loopgate, jsonschema — optional extra
 artifacts/rounds/         по одному файлу на раунд петли

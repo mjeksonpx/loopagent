@@ -12,8 +12,14 @@ Usage:
     loopgate product             # product verdict  -> PRODUCT_ACCEPTANCE_PASS_0001
     loopgate regress             # the gate's own regression suite
     loopgate brief --profile X --issue 12 --format ywcrew-json --out /tmp/t.json
+    loopgate --repo ../other gate --strict   # gate another checkout of this layout
 
 Every command forwards unknown arguments verbatim, so `loopgate gate --help` is the script's help.
+
+`--repo` is global and must come *before* the command name: the gate scripts resolve their own
+root from `__file__`, so running the copy that lives in the target tree gates that tree. It is not
+recognised after the command, because `worker_brief.py` has its own `--repo` (the issue slug) and
+consuming that one would change its meaning.
 """
 
 from __future__ import annotations
@@ -63,15 +69,49 @@ COMMANDS: dict[str, tuple[str, str]] = {
 def usage() -> str:
     width = max(len(name) for name in COMMANDS)
     lines = ["loopgate — gates that accept work by proof, not by confidence", "",
-             "usage: loopgate <command> [args...]", ""]
+             "usage: loopgate [--repo PATH] <command> [args...]", ""]
     for name, (_, doc) in sorted(COMMANDS.items()):
         lines.append(f"  {name:<{width}}  {doc}")
-    lines += ["", "Each command forwards every extra argument to the underlying script."]
+    lines += ["",
+              "Each command forwards every extra argument to the underlying script.",
+              "--repo PATH runs the script of the target checkout instead of this one;",
+              "it goes before the command name (after it, --repo belongs to the script)."]
     return "\n".join(lines)
+
+
+def split_repo_flag(args: list[str]) -> tuple[str | None, list[str], str | None]:
+    """Consume a leading ``--repo <path>`` / ``--repo=<path>``.
+
+    Only the global position is recognised, deliberately: ``worker_brief.py`` declares its own
+    ``--repo`` (the repository slug for the issue URL), so scanning the forwarded tail would
+    silently steal that argument from ``loopgate brief``.
+    """
+    repo: str | None = None
+    index = 0
+    while index < len(args):
+        arg = args[index]
+        if arg == "--repo":
+            if index + 1 >= len(args):
+                return None, args, "--repo needs a path"
+            repo = args[index + 1]
+            index += 2
+            continue
+        if arg.startswith("--repo="):
+            repo = arg.split("=", 1)[1]
+            index += 1
+            continue
+        break
+    if repo is not None and not repo.strip():
+        return None, args, "--repo needs a path"
+    return repo, args[index:], None
 
 
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
+    repo, args, repo_error = split_repo_flag(args)
+    if repo_error:
+        print(repo_error, file=sys.stderr)
+        return 2
     if not args or args[0] in {"-h", "--help", "help"}:
         print(usage())
         return 0 if args else 2
@@ -85,11 +125,19 @@ def main(argv: list[str] | None = None) -> int:
         print(f"unknown command: {name}", file=sys.stderr)
         print(usage(), file=sys.stderr)
         return 2
-    script = os.path.join(ROOT, entry[0])
+    root = ROOT
+    if repo is not None:
+        root = os.path.abspath(os.path.expanduser(repo))
+        if not os.path.isdir(root):
+            print(f"--repo is not a directory: {root}", file=sys.stderr)
+            return 2
+    script = os.path.join(root, entry[0])
     if not os.path.exists(script):
-        print(f"missing script for '{name}': {script}", file=sys.stderr)
+        where = f" (target checkout from --repo: {root})" if repo is not None else ""
+        print(f"missing script for '{name}': {script}{where}", file=sys.stderr)
         return 2
-    return subprocess.call([sys.executable, script, *rest])
+    # cwd = the target checkout: the gates read repo-relative state (artifacts/, handoff/, git).
+    return subprocess.call([sys.executable, script, *rest], cwd=root)
 
 
 if __name__ == "__main__":

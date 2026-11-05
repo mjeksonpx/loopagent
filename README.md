@@ -129,11 +129,17 @@ directory.
 pip install -e ".[contracts]"               # optional: the `loopgate` command
 loopgate gate --strict                      # identical to the script; the wrapper only names it
 loopgate status                             # both verdicts + the queue on one operator page
+loopgate --repo ../other gate --strict      # the same gate, run from another checkout
 ```
 
 Python **3.9+** on paper, **3.12** in CI: one interpreter, so a green badge means "this runs", not
 "this may run somewhere". `loopgate <cmd>` forwards every argument to the script of the same name —
 the wrapper is a convenience, never a requirement.
+
+`--repo PATH` goes before the command name and runs the script that lives in that checkout, so the
+gate judges that tree instead of this one. It is deliberately not recognised after the command:
+`worker_brief.py` has its own `--repo` (the repository slug for the issue URL), and the wrapper must
+not steal it.
 
 ## Sixty seconds
 
