@@ -49,7 +49,8 @@ Two habits that keep the suite honest:
 - stdlib only. The core has no third-party dependency on purpose: `git clone` and run. Optional extras
   (e.g. `jsonschema` for one product scenario) are declared in `pyproject.toml` and must degrade to a
   `SKIP` **with a stated reason**, never to a silent PASS.
-- Python 3.9+ compatible. CI runs 3.9, 3.12 and 3.14.
+- Python 3.9+ compatible. CI runs one interpreter (3.12) on purpose: a matrix would tell a contributor
+  nothing they can act on. `make check` is how you verify your own version.
 - Failure messages name the missing thing and the command that would produce it. "invalid" is not a
   message.
 - Comments explain *why*, in the place where the next reader will ask.
