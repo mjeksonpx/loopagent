@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "loopgate"
-version = "0.1.0"
+version = "0.2.0"
 description = "Accept agent work by proof, not by confidence: gates that print a marker and refuse to take the agent's word."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -27,9 +27,6 @@ contracts = ["jsonschema>=4.18"]
 
 [project.scripts]
 loopgate = "loopgate.cli:main"
-
-[project.urls]
-Homepage = "https://github.com/"
 
 [tool.setuptools]
 packages = ["loopgate"]

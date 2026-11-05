@@ -4,4 +4,4 @@ The gates themselves stay as plain scripts under ``scripts/`` so that a reader c
 installing anything; this package only gives them a single, discoverable name.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
