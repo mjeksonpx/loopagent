@@ -111,6 +111,11 @@ Nothing to install: no third-party dependency in the core, no daemon, no databas
 migrate. Optional extras (`jsonschema` for one product scenario) degrade to a `SKIP` **with a stated
 reason**, never to a silent PASS.
 
+One machine prerequisite is not optional: the visual dimension (`D13`) needs **Chrome or Chromium**, and
+`make check` fails without it (`CI_DIMS_STOP_0001`). That is deliberate — a visual check that silently
+skips is worse than none — and `python3 -m loopgate.gates.doctor` names what this interpreter found before
+a red dimension looks like a mystery. `make check` also needs `make` and Python 3.9+.
+
 ```bash
 python3 -m loopgate.gates.bootstrap_state --init   # first run: declare the cold start
 # -> LOOP_STATE_COLD_0001   wrote artifacts/loop_state.json: state=cold, round=0
