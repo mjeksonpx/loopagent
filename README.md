@@ -143,7 +143,8 @@ loopgate --repo ../other gate --strict      # judge another project instead of t
 The gates ship inside the package, so a project does not need a copy of this repository:
 
 ```bash
-pip install "git+https://github.com/mjeksonpx/loopagent.git@v0.4.0"
+pip install "git+https://github.com/mjeksonpx/loopagent.git@v0.4.1"   # works today
+# pip install loopagent                                              # the same, once published on PyPI
 cd your-project                              # a git repository, or one with AGENTS.md
 loopgate init                                # writes the contract skill, AGENTS.md / PLANS.md / README.md,
                                              # and declares the cold start (never a fabricated PASS)
@@ -153,9 +154,9 @@ loopgate gate --strict                       # -> STOP: names what the project s
 The install names a tag on purpose: `git+…` without one follows `main`, so the code under you would change
 under your feet. Use `@v0.4.0` (or a later tag) and pin it in your own requirements.
 
-> **Not on PyPI yet.** `pip install loopgate` would install a different project — use the git URL above.
-> A PyPI release is prepared (`.github/workflows/release.yml`, trusted publishing) and needs the project
-> registered on PyPI once; until then the git tag is the supported install.
+> **The distribution is `loopagent`; the command is `loopgate`.** The name `loopgate` on PyPI belongs to an
+> unrelated project, so `pip install loopgate` would install somebody else's code. Use `loopagent` (once
+> published) or the git tag above, which needs no registry at all.
 
 `init` never overwrites an existing `AGENTS.md`, `PLANS.md` or `README.md`, and it writes no round, handoff
 or anchor: those are evidence of a run.

@@ -3,8 +3,11 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "loopgate"
-version = "0.4.0"
+# The distribution is `loopagent` because `loopgate` is already taken on PyPI by an unrelated project.
+# The import package stays `loopgate` and so does the `loopgate` command: only the name you pip-install
+# differs, and it is the one that matches this repository.
+name = "loopagent"
+version = "0.4.1"
 description = "Accept agent work by proof, not by confidence: gates that print a marker and refuse to take the agent's word."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -20,6 +23,10 @@ classifiers = [
   "Environment :: Console",
 ]
 dependencies = []
+
+[project.urls]
+Repository = "https://github.com/mjeksonpx/loopagent"
+Issues = "https://github.com/mjeksonpx/loopagent/issues"
 
 [project.optional-dependencies]
 # Optional: one product-acceptance scenario validates published JSON contracts. Everything else is stdlib.

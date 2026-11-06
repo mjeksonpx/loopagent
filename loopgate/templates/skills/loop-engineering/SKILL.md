@@ -14,12 +14,13 @@ description: Use when a task needs a bounded multi-round loop with evidence inst
 ## Установка в проект (скилл скачан отдельно)
 
 ```bash
-pip install "git+https://github.com/mjeksonpx/loopagent.git"
+pip install "git+https://github.com/mjeksonpx/loopagent.git@v0.4.1"
 cd <проект>                 # git-репозиторий или каталог с AGENTS.md
 loopgate init               # этот скилл -> .agents/skills/, контракт -> AGENTS.md/PLANS.md/README.md, холодный старт
 loopgate gate --strict      # STOP: перечисляет измерения, которые проект настраивает сам
 ```
 
+Дистрибутив называется `loopagent`, команда — `loopgate`: имя `loopgate` на PyPI занято чужим проектом.
 Без консольной команды те же шаги: `python3 -m loopgate.init` и
 `python3 -m loopgate.gates.check_loop --strict`.
 
