@@ -1,0 +1,61 @@
+name: release
+
+# Publishing to PyPI, prepared but not yet active.
+#
+# Deliberately `workflow_dispatch`, not `on: push: tags`: the PyPI project does not exist yet, and a tag
+# push must not leave a red run behind it. Until `loopgate` is registered on PyPI with this repository as
+# its trusted publisher (PyPI -> Publishing -> add a new pending publisher: repo `mjeksonpx/loopagent`,
+# workflow `release.yml`, environment `pypi`), the last step is expected to fail — everything before it
+# still proves the artifact builds and installs.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "tag to publish, e.g. v0.4.0"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: build and publish
+    runs-on: ubuntu-latest
+    # Trusted publishing needs an environment named here; create `pypi` in the repository settings
+    # (optionally with a required reviewer) before the first real upload.
+    environment: pypi
+    permissions:
+      id-token: write   # OIDC token for PyPI; no API token is stored in the repository
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --quiet build
+          python -m build
+
+      - name: Prove the wheel carries the gates and the templates
+        # A wheel that imports but has no gates is exactly the bug this release fixes, so the artifact is
+        # tested here rather than trusted: install it, import a gate, and run the command.
+        run: |
+          python -m pip install --quiet dist/*.whl
+          python -c "import loopgate, loopgate.gates.check_loop, loopgate.init, loopgate.paths"
+          python - <<'PY'
+          import os, loopgate.paths as p
+          gates = [f for f in os.listdir(p.GATES_DIR) if f.endswith(".py")]
+          skill = os.path.join(p.TEMPLATES_DIR, "skills", "loop-engineering", "SKILL.md")
+          assert len(gates) >= 15, gates
+          assert os.path.exists(skill), skill
+          print(f"wheel carries {len(gates)} gates and the contract skill")
+          PY
+          loopgate --version
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

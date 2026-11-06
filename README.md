@@ -143,17 +143,48 @@ loopgate --repo ../other gate --strict      # judge another project instead of t
 The gates ship inside the package, so a project does not need a copy of this repository:
 
 ```bash
-pip install "git+https://github.com/mjeksonpx/loopagent.git"
+pip install "git+https://github.com/mjeksonpx/loopagent.git@v0.4.0"
 cd your-project                              # a git repository, or one with AGENTS.md
 loopgate init                                # writes the contract skill, AGENTS.md / PLANS.md / README.md,
                                              # and declares the cold start (never a fabricated PASS)
 loopgate gate --strict                       # -> STOP: names what the project still has to configure
 ```
 
+The install names a tag on purpose: `git+…` without one follows `main`, so the code under you would change
+under your feet. Use `@v0.4.0` (or a later tag) and pin it in your own requirements.
+
+> **Not on PyPI yet.** `pip install loopgate` would install a different project — use the git URL above.
+> A PyPI release is prepared (`.github/workflows/release.yml`, trusted publishing) and needs the project
+> registered on PyPI once; until then the git tag is the supported install.
+
 `init` never overwrites an existing `AGENTS.md`, `PLANS.md` or `README.md`, and it writes no round, handoff
-or anchor: those are evidence of a run. The first verdict is STOP, not COLD, because D10–D14 are facts about
-the project itself (its evidence bundle, product scenarios, signing key, visual scenarios, metric baseline).
-`init` lists each one; the gate never passes them on a template.
+or anchor: those are evidence of a run.
+
+### The first run is red, and that is the design
+
+A project that has just been through `init` answers `STOP`, exit 1, and lists what is missing:
+
+```
+D10 issue_bridge               [FAIL] issue bridge incomplete
+       - configs/repo_profiles.json missing
+D11 product_gate               [FAIL] product gate incomplete
+...
+LOOP_ENGINEERING_STOP_0001
+```
+
+`COLD` is a different, rarer verdict: it appears only when every red dimension is *history* (D03–D05, D09,
+D12) and nothing else is wrong — that is a tree that has never run the loop. `STOP` here means the project's
+own facts are not configured yet, and no template can stand in for them:
+
+| Red dimension | What only the project can supply |
+|---|---|
+| `D10` | `configs/repo_profiles.json` — the commands a worker must prove |
+| `D11` | `configs/product_scenarios.json` — what a user must be able to do, and why it matters |
+| `D12` | `configs/allowed_signers` + `configs/anchor_witness.json` — the key that signs a verdict |
+| `D13` | `configs/visual_scenarios.json` — what a person must see; plus Chrome on the machine |
+| `D14` | `configs/change_health.json` + a recorded baseline — which direction of each metric is worse |
+
+A green gate is therefore work, not a default, and the gate says which work.
 
 ### The skill
 
@@ -175,8 +206,8 @@ Use the skill when the work needs rounds with evidence: a release gate, a refact
 a multi-step fix. Skip it for a one-off edit that one command verifies.
 
 Python **3.9+** on paper, **3.12** in CI: one interpreter, so a green badge means "this runs", not
-"this may run somewhere". `loopgate <cmd>` forwards every argument to the script of the same name —
-the wrapper is a convenience, never a requirement.
+"this may run somewhere". `loopgate <cmd>` forwards every argument to the gate of the same name —
+the command is a convenience, never a requirement.
 
 `--repo PATH` goes before the command name and runs the script that lives in that checkout, so the
 gate judges that tree instead of this one. It is deliberately not recognised after the command:
