@@ -7,7 +7,29 @@ description: Use when a task needs a bounded multi-round loop with evidence inst
 
 Превращает работу агента в ограниченную петлю, которую принимают по доказательству, а не по
 уверенности: `Build → Fail → Repair → Prove → Review → Handoff`.
-Разбор механики по курсу — `course/00_mechanics_map.md`, канонический текст — `course/**`.
+
+Скилл — это процедура. Гейт, который её принимает, — отдельный pip-пакет `loopgate`; раздел ниже
+ставит его в проект. Ссылки на `course/**` в этом тексте — материал автора, в поставку не входит.
+
+## Установка в проект (скилл скачан отдельно)
+
+```bash
+pip install "git+https://github.com/mjeksonpx/loopagent.git"
+cd <проект>                 # git-репозиторий или каталог с AGENTS.md
+loopgate init               # этот скилл -> .agents/skills/, контракт -> AGENTS.md/PLANS.md/README.md, холодный старт
+loopgate gate --strict      # STOP: перечисляет измерения, которые проект настраивает сам
+```
+
+Без консольной команды те же шаги: `python3 -m loopgate.init` и
+`python3 -m loopgate.gates.check_loop --strict`.
+
+Первый вердикт нового проекта — `STOP`, а не `PASS`: D10–D14 описывают факты самого проекта (бандл
+команд, сценарии продукта, ключ подписи, визуальные сценарии, baseline метрик). `init` их не выдумывает
+и не подставляет шаблон вместо доказательства.
+
+В Hermes проектные скиллы грузятся только из доверенного репозитория: один раз `hermes skills trust`
+из каталога проекта. В других агентах (Claude Code, Cursor, Copilot) `init` кладёт файл в ту же
+кросс-инструментальную конвенцию `.agents/skills/`.
 
 ## Когда включать
 
