@@ -102,7 +102,7 @@ case is a slogan.
 ## Install
 
 ```bash
-git clone <this repo> && cd loopagent
+git clone https://github.com/mjeksonpx/loopagent.git && cd loopagent
 python3 -m loopgate.gates.doctor                   # what this interpreter can run, before yellow is a mystery
 make check                                  # what CI runs: compile + code dimensions + regressions
 ```
