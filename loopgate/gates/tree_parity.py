@@ -19,15 +19,17 @@ So this script turns drift into a measurement with three outcomes, and the third
 
 Usage
 -----
-    python3 scripts/tree_parity.py --selftest
-    python3 scripts/tree_parity.py --policy configs/tree_parity.json
-    python3 scripts/tree_parity.py --a /path/lab --b /path/published \\
-        --must-match 'scripts/*.py' --must-match Makefile --may-differ 'scripts/private.py=lab-only tool'
+    python3 -m loopgate.gates.tree_parity --selftest
+    python3 -m loopgate.gates.tree_parity --policy configs/tree_parity.json
+    python3 -m loopgate.gates.tree_parity --a /path/lab --b /path/published \\
+        --must-match 'loopgate/gates/*.py' --must-match Makefile --may-differ 'loopgate/gates/private.py=lab-only tool'
 
 Markers: ``TREE_PARITY_PASS_0001`` (exit 0) / ``TREE_PARITY_STOP_0001`` (exit 1).
 """
 
 from __future__ import annotations
+
+from loopgate.paths import TEMPLATES_DIR, project_root, gate_file
 
 import argparse
 import fnmatch
@@ -37,7 +39,7 @@ import shutil
 import sys
 import tempfile
 
-HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+HERE = project_root()
 
 PASS_MARKER = "TREE_PARITY_PASS_0001"
 STOP_MARKER = "TREE_PARITY_STOP_0001"
@@ -173,20 +175,20 @@ def selftest() -> int:
             shutil.rmtree(tmp, ignore_errors=True)
 
     case("identical trees pass",
-         {"scripts/x.py": "a\n"}, {"scripts/x.py": "a\n"}, ["scripts/*.py"], {}, True)
+         {"loopgate/gates/x.py": "a\n"}, {"loopgate/gates/x.py": "a\n"}, ["loopgate/gates/*.py"], {}, True)
     case("must-match drift stops",
-         {"scripts/x.py": "a\n"}, {"scripts/x.py": "b\n"}, ["scripts/*.py"], {}, False)
+         {"loopgate/gates/x.py": "a\n"}, {"loopgate/gates/x.py": "b\n"}, ["loopgate/gates/*.py"], {}, False)
     case("file missing in one tree stops",
-         {"scripts/x.py": "a\n"}, {}, ["scripts/*.py"], {}, False)
+         {"loopgate/gates/x.py": "a\n"}, {}, ["loopgate/gates/*.py"], {}, False)
     case("explained exception passes",
-         {"scripts/x.py": "a\n", "scripts/private.py": "lab\n"}, {"scripts/x.py": "a\n"},
-         ["scripts/*.py"], {"scripts/private.py": "lab-only tooling"}, True)
+         {"loopgate/gates/x.py": "a\n", "loopgate/gates/private.py": "lab\n"}, {"loopgate/gates/x.py": "a\n"},
+         ["loopgate/gates/*.py"], {"loopgate/gates/private.py": "lab-only tooling"}, True)
     case("exception without a reason stops",
-         {"scripts/x.py": "a\n", "scripts/private.py": "lab\n"}, {"scripts/x.py": "a\n"},
-         ["scripts/*.py"], {"scripts/private.py": "  "}, False)
+         {"loopgate/gates/x.py": "a\n", "loopgate/gates/private.py": "lab\n"}, {"loopgate/gates/x.py": "a\n"},
+         ["loopgate/gates/*.py"], {"loopgate/gates/private.py": "  "}, False)
     case("unclassified drift stops",
-         {"scripts/x.py": "a\n", "README.md": "one\n"}, {"scripts/x.py": "a\n", "README.md": "two\n"},
-         ["scripts/*.py"], {}, False)
+         {"loopgate/gates/x.py": "a\n", "README.md": "one\n"}, {"loopgate/gates/x.py": "a\n", "README.md": "two\n"},
+         ["loopgate/gates/*.py"], {}, False)
     # Policy loading is a second surface, and a file that parses but says nothing is worse than no file.
     tmp = tempfile.mkdtemp(prefix="parity-policy-")
     try:
@@ -209,16 +211,16 @@ def selftest() -> int:
         cases.append(("policy file: the list form loads too",
                       loaded_list["may_differ"] == {"r.py": "why"}, True, loaded_list["may_differ"]))
         a2, b2 = os.path.join(tmp, "a2"), os.path.join(tmp, "b2")
-        _write(a2, "scripts/x.py", "one\n")
-        _write(b2, "scripts/x.py", "two\n")
-        hidden = compare(a2, b2, ["scripts/*.py"], {"scripts/*.py": "  "})
+        _write(a2, "loopgate/gates/x.py", "one\n")
+        _write(b2, "loopgate/gates/x.py", "two\n")
+        hidden = compare(a2, b2, ["loopgate/gates/*.py"], {"loopgate/gates/*.py": "  "})
         kinds = [kind for kind, _, _ in hidden]
         cases.append(("blank-reason exception still reports the file itself, not only the pattern",
                       "drift" in kinds and "unexplained-exception" in kinds, True, hidden))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
-    example = os.path.join(HERE, "configs", "tree_parity.example.json")
+    example = os.path.join(TEMPLATES_DIR, "configs", "tree_parity.example.json")
     if os.path.exists(example):
         shipped = load_policy(example)
         cases.append(("the shipped example policy parses and explains every exception",

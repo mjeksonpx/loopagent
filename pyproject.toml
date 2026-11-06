@@ -29,7 +29,11 @@ contracts = ["jsonschema>=4.18"]
 loopgate = "loopgate.cli:main"
 
 [tool.setuptools]
-packages = ["loopgate"]
+packages = ["loopgate", "loopgate.gates", "loopgate.templates"]
 
 [tool.setuptools.package-data]
 loopgate = ["py.typed"]
+# Templates ship with the package: example profiles, the tree-parity policy, the review fixtures and the
+# loop contract skill that `loopgate init` copies into a project.
+"loopgate.templates" = ["configs/*.json", "configs/fixtures/*.json", "skills/loop-engineering/*.md"]
+"loopgate.gates" = ["*.py"]

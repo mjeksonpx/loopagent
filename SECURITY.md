@@ -3,8 +3,8 @@
 ## What this project runs
 
 The gates are read-only by design: they inspect files, run a product's own binary or a headless browser,
-and print a verdict. `scripts/check_product.py` starts the target product locally and terminates it;
-`scripts/check_visual.py` launches Chrome headless against a local static page. Nothing in the core talks
+and print a verdict. `loopgate/gates/check_product.py` starts the target product locally and terminates it;
+`loopgate/gates/check_visual.py` launches Chrome headless against a local static page. Nothing in the core talks
 to the network except optional, explicit steps (`anchor_witness.py publish`, `sync_issues_to_kanban.py`
 reading GitHub issues through `gh`).
 

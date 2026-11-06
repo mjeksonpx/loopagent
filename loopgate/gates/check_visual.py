@@ -15,13 +15,15 @@ worse than no visual check.
 
 Usage
 -----
-    python3 scripts/check_visual.py --list
-    python3 scripts/check_visual.py                     # capture + judge every scenario
-    python3 scripts/check_visual.py --strict            # SKIP becomes FAIL
-    python3 scripts/check_visual.py --scenario V01 --verbose
+    python3 -m loopgate.gates.check_visual --list
+    python3 -m loopgate.gates.check_visual                     # capture + judge every scenario
+    python3 -m loopgate.gates.check_visual --strict            # SKIP becomes FAIL
+    python3 -m loopgate.gates.check_visual --scenario V01 --verbose
 """
 
 from __future__ import annotations
+
+from loopgate.paths import project_root, gate_file
 
 import argparse
 import datetime as dt
@@ -35,11 +37,9 @@ import subprocess
 import sys
 import threading
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)
-sys.path.insert(0, HERE)
+ROOT = project_root()
 
-import render_status_page  # noqa: E402  (sibling script: the page under test)
+from loopgate.gates import render_status_page  # noqa: E402  (sibling script: the page under test)
 
 PASS_MARKER = "VISUAL_CHECK_PASS_0001"
 STOP_MARKER = "VISUAL_CHECK_STOP_0001"
@@ -158,7 +158,7 @@ def main(argv=None) -> int:
         scenarios = [s for s in scenarios if s["id"] in wanted] or []
 
     chrome = chrome_binary()
-    print("VISUAL CHECK — scripts/check_visual.py")
+    print("VISUAL CHECK — loopgate/gates/check_visual.py")
     print(f"page: {config['page']}   chrome: {chrome or '(not found)'}")
     print()
     if chrome is None:

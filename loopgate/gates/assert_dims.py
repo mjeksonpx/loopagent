@@ -8,13 +8,15 @@ from a clone; it can honestly demand that the dimensions which depend only on th
 
 This script makes that distinction executable instead of a sentence in a README:
 
-    python3 scripts/assert_dims.py --require D01 D02 D06 D07 D08 D10 D11 D13
-    python3 scripts/assert_dims.py --require-all      # only where the loop state exists
+    python3 -m loopgate.gates.assert_dims --require D01 D02 D06 D07 D08 D10 D11 D13
+    python3 -m loopgate.gates.assert_dims --require-all      # only where the loop state exists
 
 Exit 0 prints ``CI_DIMS_PASS_0001``; a missing or red dimension prints ``CI_DIMS_STOP_0001`` naming it.
 """
 
 from __future__ import annotations
+
+from loopgate.paths import project_root, gate_file
 
 import argparse
 import os
@@ -22,15 +24,16 @@ import re
 import subprocess
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-GATE = "scripts/check_loop.py"
+ROOT = project_root()
 PASS_MARKER = "CI_DIMS_PASS_0001"
 STOP_MARKER = "CI_DIMS_STOP_0001"
 LINE_RE = re.compile(r"^(D\d\d)\s+\S+\s+\[(OK|FAIL|SKIP)\]")
 
 
 def gate_output(root: str, extra: list[str]) -> tuple[int, str]:
-    proc = subprocess.run([sys.executable, os.path.join(root, GATE), *extra],
+    # Run the packaged gate as a module from the judged root: a file path would put loopgate/gates/ first on
+    # sys.path and the package import (loopgate.paths) would fail.
+    proc = subprocess.run([sys.executable, "-m", "loopgate.gates.check_loop", *extra],
                           capture_output=True, text=True, cwd=root)
     return proc.returncode, proc.stdout + proc.stderr
 

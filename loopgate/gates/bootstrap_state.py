@@ -7,10 +7,10 @@ history out of this machine would be a fake; a fake is the one thing this projec
 
 So the tree says so out loud:
 
-    python3 scripts/bootstrap_state.py --init          # writes artifacts/loop_state.json, state = cold
-    python3 scripts/check_loop.py --strict             # -> LOOP_ENGINEERING_COLD_0001, exit 0
+    python3 -m loopgate.gates.bootstrap_state --init          # writes artifacts/loop_state.json, state = cold
+    python3 -m loopgate.gates.check_loop --strict             # -> LOOP_ENGINEERING_COLD_0001, exit 0
     ...run the loop once (a round artifact + a state update)...
-    python3 scripts/check_loop.py --strict             # -> LOOP_ENGINEERING_PASS_0001, exit 0
+    python3 -m loopgate.gates.check_loop --strict             # -> LOOP_ENGINEERING_PASS_0001, exit 0
 
 The cold marker is not a pass: it says the code dimensions are green and four state dimensions could not
 be measured. The gate refuses the declaration as soon as round or handoff artifacts appear, so it cannot
@@ -19,13 +19,15 @@ be used to hide a broken loop behind an empty directory.
 
 from __future__ import annotations
 
+from loopgate.paths import project_root, gate_file
+
 import argparse
 import datetime
 import json
 import os
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = project_root()
 STATE_REL = "artifacts/loop_state.json"
 ROUNDS_REL = "artifacts/rounds"
 HANDOFF_REL = "handoff"
@@ -50,7 +52,7 @@ def cold_state() -> dict:
         "updated_at": now,
         "marker": None,
         "history": [],
-        "note": ("Written by scripts/bootstrap_state.py. This is a declaration, not evidence: it exists so "
+        "note": ("Written by loopgate/gates/bootstrap_state.py. This is a declaration, not evidence: it exists so "
                  "the gate can name what a fresh clone cannot prove instead of pretending either way."),
     }
 
@@ -100,7 +102,7 @@ def main(argv=None) -> int:
         json.dump(cold_state(), fh, ensure_ascii=False, indent=2)
         fh.write("\n")
     print(f"wrote {STATE_REL}: state=cold, round=0 — the gate will name the unprovable dimensions")
-    print("next: python3 scripts/check_loop.py --strict")
+    print("next: python3 -m loopgate.gates.check_loop --strict")
     print(COLD_MARKER)
     return 0
 

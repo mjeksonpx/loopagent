@@ -6,8 +6,8 @@ their GitHub account, a witness journal in a private repository, and a study cor
 paid course. None of that can be published, and hand-cleaning a clone before every release is how private
 strings leak — so the cleaning is a command:
 
-    python3 scripts/export_public.py --out dist/public
-    python3 scripts/export_public.py --out dist/public --git-init   # fresh single-commit history
+    python3 -m loopgate.gates.export_public --out dist/public
+    python3 -m loopgate.gates.export_public --out dist/public --git-init   # fresh single-commit history
 
 What it guarantees:
 * **Only tracked files** are considered — gitignored state (`artifacts/`, `handoff/`, an editor's backup)
@@ -28,6 +28,8 @@ The exporter never rewrites git history; the working repository is untouched apa
 
 from __future__ import annotations
 
+from loopgate.paths import project_root, gate_file
+
 import argparse
 import json
 import fnmatch
@@ -37,7 +39,7 @@ import shutil
 import subprocess
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = project_root()
 CONFIG_REL = "configs/public_sanitize.json"
 PASS_MARKER = "PUBLIC_EXPORT_PASS_0001"
 STOP_MARKER = "PUBLIC_EXPORT_STOP_0001"
@@ -90,7 +92,7 @@ def sanitize(text: str, substitutions: list[dict]) -> tuple[str, dict[str, int]]
 def redact(text: str, rel: str, rules: list[dict]) -> tuple[str, dict[str, int]]:
     """Pattern redactions, limited by scope — because the same string means two different things.
 
-    `~/.hermes/kanban.db` inside scripts/guard_card.py is the default path of an integration and must stay
+    `~/.hermes/kanban.db` inside loopgate/gates/guard_card.py is the default path of an integration and must stay
     working; the same string in a journal is a description of somebody's machine. Scope ("*.md") is what
     keeps the two apart instead of a clever pattern.
     """
@@ -175,10 +177,11 @@ def scan(cfg: dict, out: str) -> list[str]:
 
 
 def gate_dims(out: str) -> tuple[dict[str, str], str]:
-    gate = os.path.join(out, "scripts", "check_loop.py")
+    # The exported tree carries the package; run its gate as a module from that tree so the copy judges itself.
+    gate = os.path.join(out, "loopgate", "gates", "check_loop.py")
     if not os.path.exists(gate):
         return {}, "no gate in the exported tree"
-    proc = subprocess.run([sys.executable, gate], capture_output=True, text=True, cwd=out)
+    proc = subprocess.run([sys.executable, "-m", "loopgate.gates.check_loop"], capture_output=True, text=True, cwd=out)
     dims: dict[str, str] = {}
     for line in (proc.stdout + proc.stderr).splitlines():
         parts = line.split()
@@ -199,7 +202,7 @@ def git_fresh_history(out: str) -> str:
         ["git", "-C", out, "-c", "user.name=loopgate export", "-c", "user.email=export@example.org",
          "commit", "-q", "-m",
          "loopgate: gates that accept agent work by proof, not by confidence\n\n"
-         "Public tree assembled by scripts/export_public.py: private material and local identities are\n"
+         "Public tree assembled by loopgate/gates/export_public.py: private material and local identities are\n"
          "removed, example profiles are in place of the author's working ones."],
         capture_output=True, text=True)
     if proc.returncode != 0:
@@ -255,9 +258,9 @@ def main(argv=None) -> int:
     # would describe files the export does not contain, so the published tree records its own baseline
     # before it is committed — that is how the verdict stays honest instead of merely favourable.
     if not args.no_gate:
-        recorded = subprocess.run([sys.executable, os.path.join(out, "scripts", "change_health.py"),
+        recorded = subprocess.run([sys.executable, "-m", "loopgate.gates.change_health",
                                    "--root", out, "--write-baseline"],
-                                  capture_output=True, text=True)
+                                  capture_output=True, text=True, cwd=out)
         if recorded.returncode == 0:
             print("  change-health baseline: " + recorded.stdout.strip().splitlines()[0])
         else:

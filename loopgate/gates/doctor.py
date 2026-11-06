@@ -7,13 +7,15 @@ one-line answer to "why is this yellow?", and without this script the answer is 
 It also pins the interpreter question: `#!/usr/bin/env python3` resolves to whatever the PATH holds, so
 two interpreters on one machine can give two verdicts for the same tree.
 
-    python3 scripts/doctor.py
-    python3 scripts/doctor.py --json
+    python3 -m loopgate.gates.doctor
+    python3 -m loopgate.gates.doctor --json
 
 Exit 0 always: this is a report, not a gate. The gates decide.
 """
 
 from __future__ import annotations
+
+from loopgate.paths import project_root, gate_file
 
 import argparse
 import json
@@ -22,7 +24,7 @@ import shutil
 import subprocess
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = project_root()
 MARKER = "DOCTOR_REPORT_0001"
 
 

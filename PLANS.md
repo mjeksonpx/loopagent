@@ -1,11 +1,11 @@
 # PLANS.md — план работ
 
-Гейт: `python3 scripts/check_loop.py` → `LOOP_ENGINEERING_STOP_0001` (красный, exit 1) /
+Гейт: `python3 -m loopgate.gates.check_loop` → `LOOP_ENGINEERING_STOP_0001` (красный, exit 1) /
 `LOOP_ENGINEERING_PASS_0001` (exit 0).
 
 ## Этап 1. Каркас петли — ✅ закрыт (round 03, `LOOP_ENGINEERING_PASS_0001`, 8/8 обязательных измерений)
 
-1. ✅ `scripts/check_loop.py` — локальный гейт, read-only, 9 измерений (D01–D09). Стартует красным:
+1. ✅ `loopgate/gates/check_loop.py` — локальный гейт, read-only, 9 измерений (D01–D09). Стартует красным:
    список failures + `LOOP_ENGINEERING_STOP_0001`; после ремонта — `LOOP_ENGINEERING_PASS_0001`, `exit 0`.
    Evidence: `artifacts/rounds/round_02.md` (красный прогон), `round_03.md` (красный → зелёный за три
    прогона), `artifacts/loop_gate_report.json` (машинный отчёт).
@@ -24,14 +24,14 @@ falsification-тестами, evaluator нашёл 2 неверные цифры
 4. explorer: `ywcrew run --mode read-only` — карта репо и текущее состояние гейта.
 5. reviewer: `ywcrew panel` — независимое ревью (codex + grok + agy/claude-sonnet).
 6. worker: `ywcrew run --mode edit` — точечная правка по evidence.
-7. evaluator: read-only + `scripts/check_loop.py`.
+7. evaluator: read-only + `loopgate/gates/check_loop.py`.
 8. supervisor synthesis: `handoff/supervisor_synthesis.md` собирает Hermes.
 
-Закрытие этапа = `python3 scripts/check_loop.py --strict` печатает PASS (D09 из SKIP → OK).
+Закрытие этапа = `python3 -m loopgate.gates.check_loop --strict` печатает PASS (D09 из SKIP → OK).
 
 ## Этап 3. Автоматизация — ✅ закрыт (детектор, cron и `/loop`-рецепт проверены живыми прогонами)
 
-9. ✅ `scripts/loop_watch.py` — детерминированный детектор изменений: гоняет гейт, сводит результат к
+9. ✅ `loopgate/gates/loop_watch.py` — детерминированный детектор изменений: гоняет гейт, сводит результат к
    отпечатку (маркер, статусы измерений, failures, метрики, раунд) и **молчит, если ничего не
    изменилось**; при изменении печатает компактный диф `было -> стало`. Проверено на копии: baseline →
    тишина → инъекция регрессии дала диф → тишина → восстановление дало обратный диф.
@@ -89,9 +89,9 @@ falsification-тестами, evaluator нашёл 2 неверные цифры
 17. ✅ GitHub issues = источник истины и внешняя обратная связь (тестеры, оператор, шеф).
 18. ✅ Hermes kanban = локальная очередь исполнения: задача клеймится атомарно и исполняется профилем
     в изолированном workspace (`hermes kanban create/assign/dispatch`). Мост
-    issues → kanban (assignee = роль) → dispatch → PR: `scripts/sync_issues_to_kanban.py`.
+    issues → kanban (assignee = роль) → dispatch → PR: `loopgate/gates/sync_issues_to_kanban.py`.
     Отказ на стороне воркера (неполный бандл доказательств) закрыт в самом брифе:
-    `scripts/worker_brief.py` рендерит бриф из `configs/repo_profiles.json`, а `verify` проверяет
+    `loopgate/gates/worker_brief.py` рендерит бриф из `configs/repo_profiles.json`, а `verify` проверяет
     транскрипт воркера — каждое обязательное измерение репозитория с видимым exit-кодом.
 19. ✅ Правило «одна задача = один PR» + идемпотентность `gh-<owner>-<repo>-<n>` + fail-closed
     (нет acceptance-критериев → needs-triage; нет workspace у профиля → `--apply` отказывает).
@@ -108,7 +108,7 @@ falsification-тестами, evaluator нашёл 2 неверные цифры
 
 ## Этап 7. Продуктовая приёмка и агенты-тестеры — ✅ закрыт (round 13; `--strict` 13/13, продуктовая приёмка 8/8 под python 3.14.7, D13 зелёный на 23 фальсификациях)
 
-21. ✅ Отдельный продуктовый критерий приёмки (не технический): `scripts/check_product.py` +
+21. ✅ Отдельный продуктовый критерий приёмки (не технический): `loopgate/gates/check_product.py` +
     `configs/product_scenarios.json` — 8 пользовательских сценариев sample-service (пробы, метрики, привязка
     API-порта, чистый SIGTERM, отказ на невалидной конфигурации, валидация контракта), у каждого строка
     `why` с последствием для пользователя. Печатает `PRODUCT_ACCEPTANCE_PASS_0001` / `_STOP_0001`,
@@ -116,20 +116,20 @@ falsification-тестами, evaluator нашёл 2 неверные цифры
     evaluator, мутируя ожидания каждого сценария). Шеф принимает по этому гейту, техгейт — отдельно.
 22. ✅ Профиль/роль `qa`: профиль `qa` создан (deepseek-v4.1-flash), мост маппит лейблы `qa`/`ux` на
     него (`assignee_by_label`), в cli-тулсет профиля включён `browser`. Визуальная половина сделана:
-    `scripts/render_status_page.py` (страница оператора) + `configs/visual_scenarios.json` +
-    `scripts/check_visual.py` (headless Chrome: скриншот + DOM-проверки), гейт-измерение
+    `loopgate/gates/render_status_page.py` (страница оператора) + `configs/visual_scenarios.json` +
+    `loopgate/gates/check_visual.py` (headless Chrome: скриншот + DOM-проверки), гейт-измерение
     `D13 visual_gate`. Первый же vision-разбор скриншота нашёл дефект, которого не видел ни один
     JSON-чек: заголовок в таблице обрезан посреди слова без многоточия — исправлено и закреплено
     правилом в evaluator'е.
-24. ✅ Внешний якорь гейта (закрытие остатка `risk=4`): `scripts/anchor_witness.py` подписывает вердикт
+24. ✅ Внешний якорь гейта (закрытие остатка `risk=4`): `loopgate/gates/anchor_witness.py` подписывает вердикт
     якоря отдельным ключом (`~/.ssh/loop_anchor_ed25519`, публичная половина в `configs/allowed_signers`)
     и публикует дайджест в внешний журнал (`example/sample-service#5`). Измерение `D12 anchor_witness`:
     перезапись якоря перестаёт верифицироваться. Регрессы R19–R21, R24.
-23. ✅ Таймбоксы задач: `scripts/estimate_task.py` считает p50/p90 по истории kanban-ранов и пишет
+23. ✅ Таймбоксы задач: `loopgate/gates/estimate_task.py` считает p50/p90 по истории kanban-ранов и пишет
     `configs/task_estimates.json`; мост передаёт `--max-runtime` (на cap-е диспетчер убивает воркера и
     пере-ставит задачу). Оценку делает очередь по своим измерениям, а не супервизор по ощущениям.
 
-## Этап 8. Третий вердикт «не стало хуже», журнал задач в git и защита от перерасхода — ✅ закрыт (п. 25 закрыт 2026-10-21, 26–35 закрыты 2026-10-27; доказательство — D14 в `scripts/check_loop.py`)
+## Этап 8. Третий вердикт «не стало хуже», журнал задач в git и защита от перерасхода — ✅ закрыт (п. 25 закрыт 2026-10-21, 26–35 закрыты 2026-10-27; доказательство — D14 в `loopgate/gates/check_loop.py`)
 
 Открыт по итогам ревизии восьми внешних проектов (`max-sixty/worktrunk`, `MrLesk/Backlog.md`,
 `jnsahaj/lumen`, `repowise-dev/repowise`, `git-ai-project/git-ai`, `feder-cr/git-ai`, `stravu/crystal`,
@@ -154,7 +154,7 @@ CLI не переносятся: они нарушают D06 (единствен
     а не в env интерактивного шелла (cron и launchd не читают `~/.zshrc`).
     Evidence: `gh auth status` → `Logged in to github.com account example` (scopes: `repo`, `read:org`,
     `gist`, `admin:public_key`); `gh issue list -R example/sample-service` отдаёт три открытых issue;
-    `python3 scripts/sync_issues_to_kanban.py --profile sample-service` → `ISSUE_BRIDGE_PASS_0001`, exit 0
+    `python3 -m loopgate.gates.sync_issues_to_kanban --profile sample-service` → `ISSUE_BRIDGE_PASS_0001`, exit 0
     (issues: 3 — queued 1 идемпотентно `t_<card>`, would-queue 1, needs-triage 1).
     Остаток: scope `workflow` не выдан — для `issue list` / PR / `gh pr review` хватает `repo`, но правка
     `.github/workflows/*` такому токену недоступна; выдавать только если задача тронет CI.
@@ -163,7 +163,7 @@ CLI не переносятся: они нарушают D06 (единствен
 26. ✅ **Закрепление интерпретатора — закрыто 2026-10-27.** Было: `#!/usr/bin/env python3` резолвился в
     `/usr/bin/python3` 3.9.6, где `jsonschema` был повреждён (`No module named 'rpds.rpds'`) → сценарий P08
     уходил в SKIP → `check_product.py --strict` печатал `PRODUCT_ACCEPTANCE_STOP_0001`.
-    What: `scripts/doctor.py` (+ `make doctor`, `loopgate doctor`) называет интерпретатор, состояние
+    What: `loopgate/gates/doctor.py` (+ `make doctor`, `loopgate doctor`) называет интерпретатор, состояние
     `jsonschema`, Chrome, `gh`, `git`; `check_product.py` теперь различает «пакет не установлен» и
     «установка повреждена» и печатает команду ремонта (`--force-reinstall rpds-py referencing`); в
     `Makefile` есть `PYTHON ?= python3`, чтобы вердикт можно было снять другим интерпретатором осознанно.
@@ -200,7 +200,7 @@ CLI не переносятся: они нарушают D06 (единствен
     `check_loop.py --strict` = 8 ok / 5 fail (D03, D04, D05, D09, D12), потому что `artifacts/` и
     `handoff/` в `.gitignore`. Копировать историю этой машины в экспорт нельзя — это фальсификация,
     ровно то, против чего гейт и построен.
-    What: третий вердикт вместо выдуманного PASS. `scripts/bootstrap_state.py --init` пишет
+    What: третий вердикт вместо выдуманного PASS. `loopgate/gates/bootstrap_state.py --init` пишет
     `artifacts/loop_state.json` со `state: "cold"`; гейт печатает измерения состояния как **COLD** (не OK),
     маркер `LOOP_ENGINEERING_COLD_0001`, exit 0 — «код проверен, историю доказать нечем». Декларация
     холодного старта отвергается, как только в дереве появляется раунд или handoff (иначе пустой каталог
@@ -221,7 +221,7 @@ CLI не переносятся: они нарушают D06 (единствен
 30. ✅ **Третий вердикт «не стало хуже» — закрыто 2026-10-27 (`D14 change_health`).** Два вердикта
     смотрели только на настоящее; дерево, которое остаётся зелёным, теряя измерения и фальсификации,
     проходило незамеченным.
-    What: `scripts/change_health.py` считает счётные метрики дерева (`gate_dims`, `regression_cases`,
+    What: `loopgate/gates/change_health.py` считает счётные метрики дерева (`gate_dims`, `regression_cases`,
     `python_lines`, `largest_file_lines`, `python_files`, `todo_markers`) и сравнивает их с записанным
     базлайном (`--write-baseline`) или с любым git-ref (`--base main`, через одноразовый worktree).
     Политика в `configs/change_health.json` говорит, какое направление хуже: `must_not_decrease`,
@@ -243,7 +243,7 @@ CLI не переносятся: они нарушают D06 (единствен
     `handoff/` в `.gitignore` — история «что пытались сделать и почему» чистый клон не содержит.
     Прецедент: Backlog.md держит задачи markdown-файлами в репозитории, и это переживает клон; 7k звёзд —
     сигнал, что «ревьюй таску, а не код» люди покупают.
-    What: `scripts/render_task_ledger.py` рендерит карточку в `backlog/<task-id>.md`: спека (слова
+    What: `loopgate/gates/render_task_ledger.py` рендерит карточку в `backlog/<task-id>.md`: спека (слова
     issue, а не бриф, который их цитировал), бандл доказательств профиля, таблица ранов с exit-кодами,
     trail ревью и вердикт. kanban остаётся исполнением, git — памятью; в репозиторий-цель леджер не
     пишется (там правки вне задачи запрещены).
@@ -254,7 +254,7 @@ CLI не переносятся: они нарушают D06 (единствен
 32. ✅ **Бюджет и «нет прогресса» на карточку — закрыто 2026-10-27.** Было: `--max-runtime` (30 мин) и
     `failure_limit: 2` не мешают воркеру сжечь квоту внутри окна; расхода при этом уже измерим —
     `task_runs.metadata.worker_session_id` → `<usage-table>`.
-    What: `scripts/guard_card.py` + `configs/card_budget.json` (лимиты по ролям). Четыре правила:
+    What: `loopgate/gates/guard_card.py` + `configs/card_budget.json` (лимиты по ролям). Четыре правила:
     токены (`input+output+cache_read+cache_write`), число ранов на карточку, минуты стены, минуты без
     нового коммита в worktree рана. `--enforce` шлёт SIGTERM по `worker_pid` и обновляет доску **через
     её же CLI** (`hermes kanban comment` + `block`), а не правкой БД руками. Когда чего-то измерить
@@ -306,7 +306,7 @@ CLI не переносятся: они нарушают D06 (единствен
     весь PR с комментариями через `gh`.
     What: после открытия PR — `ywcrew panel` на диффе всей фазы (архитектура, безопасность,
     производительность, соответствие брифу), вердикт комментарием в PR через `gh pr review`.
-    What сделано: `scripts/review_pr.py` (bundle `loopgate review`): `gh pr view/diff` → англоязычная
+    What сделано: `loopgate/gates/review_pr.py` (bundle `loopgate review`): `gh pr view/diff` → англоязычная
     5-частная задача с диффом → `ywcrew run` (по умолчанию `agy:gemini-3.8-flash`; `--panel` — вся
     панель) → `ywcrew result --wait` → вердикт из последней строки `VERDICT:` → `--post` через
     `gh pr review` (APPROVE → `--approve`, CHANGES → `--request-changes`). Нет строки вердикта = не
@@ -323,7 +323,7 @@ CLI не переносятся: они нарушают D06 (единствен
     же, что уже отработал.
     Constraints соблюдены: только через `ywcrew` (D06), Claude-модели не использовались.
 
-**Критерий приёмки этапа 8:** `make gate` (то же, что `python3 scripts/check_loop.py --strict`) печатает
+**Критерий приёмки этапа 8:** `make gate` (то же, что `python3 -m loopgate.gates.check_loop --strict`) печатает
 `LOOP_ENGINEERING_PASS_0001` со всеми 14
 измерениями и `PRODUCT_ACCEPTANCE_PASS_0001`; `sync_issues_to_kanban.py` печатает
 `ISSUE_BRIDGE_PASS_0001`; `worker_brief.py profiles` печатает профиль `sample-service` (второй профиль
@@ -346,7 +346,7 @@ CLI не переносятся: они нарушают D06 (единствен
 37. ✅ **CI.** `.github/workflows/ci.yml`: один интерпретатор 3.12 (матрица 3.9 / 3.12 / 3.14 была убрана —
     три версии умножали поверхность отказов и не говорили контрибьютору ничего действенного; «зелёный бейдж»
     значит «запускается», а не «может запуститься на чём-то»), `compileall`, `assert_dims`
-    (только измерения, зависящие от кода), регресс-сьют. Новый `scripts/assert_dims.py` делает различие
+    (только измерения, зависящие от кода), регресс-сьют. Новый `loopgate/gates/assert_dims.py` делает различие
     «код» против «состояние» исполняемым: в чистом клоне `LOOP_ENGINEERING_PASS_0001` недостижим по
     дизайну, и CI не делает вид, что достижим.
 38. ✅ **Развязка с Hermes.** `sync_issues_to_kanban.py --target backlog` пишет карточку markdown-файлом
@@ -355,7 +355,7 @@ CLI не переносятся: они нарушают D06 (единствен
     трейсбэком. Evidence: живой прогон `--target backlog --apply` создал
     `backlog/gh-…-2.md` и `…-4.md`; повторный прогон → `already queued 2, queued 0` (идемпотентность
     держится на файлах, а не на БД).
-39. ✅ **Обезличивание как команда.** `scripts/export_public.py` + `configs/public_sanitize.json`:
+39. ✅ **Обезличивание как команда.** `loopgate/gates/export_public.py` + `configs/public_sanitize.json`:
     собирает дерево из коммитируемых файлов (tracked + новые, минус gitignored), исключает `course/`,
     `backlog/`, драйвер корпуса и macOS-OCR, подменяет идентичности, кладёт примеры конфигов
     (`configs/repo_profiles.example.json`, `configs/anchor_witness.example.json`), прогоняет гейт внутри
@@ -380,7 +380,7 @@ CLI не переносятся: они нарушают D06 (единствен
     не принимается»), `SECURITY.md`, шаблон PR с блоком доказательств.
 44. ✅ **Публикация — закрыто 2026-10-27.** Репозиторий `loopagent` (публичный, создан оператором
     2026-10-27; имя аккаунта в тексте плана не приводится — оно и так вычищается экспортом). Перед пушем прогнан не только экспортёр, но и независимый аудит
-    (`scripts/audit_public.py`, 13 проверок) — он нашёл то, чего экспортёр не видел: имя приватного
+    (`loopgate/gates/audit_public.py`, 13 проверок) — он нашёл то, чего экспортёр не видел: имя приватного
     продукта в 12 файлах (включая фикстуру и `POSTGRES_DB: sample_service`), локальные id карточек и
     scratch-пути в прозе, русский README со ссылкой на платный курс, настоящее id карточки в примере CLI,
     «loop-system contributors» в LICENSE. Всё вычищено подменами и redaction по шаблону; фикстура
@@ -424,7 +424,7 @@ README на первом месте; лицензия и CI на месте; п�
     свежем клоне. Фикс: набор `SELF_CERTIFYING_DIMS = {D05, D12}` (оба измерения читают якорь, а не дерево)
     применён к условию выпуска якоря, хэшу вердиктов, сверке состояний в `D05` и полю `excluded_from_hash`;
     ревью отдельным движком `2026-10-29-8bef6edb` → `VERDICT: APPROVE`, находок нет.
-    Evidence: `python3 scripts/check_loop.py --strict` → `13 ok, 0 fail, 1 n/a (D08)`,
+    Evidence: `python3 -m loopgate.gates.check_loop --strict` → `13 ok, 0 fail, 1 n/a (D08)`,
     `acceptance: strict-complete`, `LOOP_ENGINEERING_PASS_0001`, `exit=0`, хэш якоря `fe0dd8a6d8ff7640`;
     `anchor_witness.py verify` → `ANCHOR_WITNESS_PASS_0001`; `make check` → 26 ok / 0 failed / 1 skipped,
     `REGRESSION_SUITE_PASS_0001` (кейсы R19/R21/R24 по-прежнему ловят подделку якоря), `PR_REVIEW_PASS_0001`.
@@ -441,14 +441,14 @@ README на первом месте; лицензия и CI на месте; п�
 
 ## Этап 11. Паритет деревьев — ✅ закрыт (2026-11-03, round 17 здесь и round 06 в публичном дереве)
 
-46. ✅ `scripts/tree_parity.py` — дрейф двух чек-аутов стал измерением, а не привычкой проверяющего. Три
+46. ✅ `loopgate/gates/tree_parity.py` — дрейф двух чек-аутов стал измерением, а не привычкой проверяющего. Три
     исхода: путь из `must_match` различается → `TREE_PARITY_STOP_0001` с первой различающейся строкой;
     путь из `may_differ` различается и у него есть **написанное** обоснование → разрешено (пустое
     обоснование не покрывает ничего); всё, что не покрыто ни одним правилом → **неклассифицированный
     дрейф**, тоже стоп. Селфтест: 11 кейсов, 4 из них про «сказать нет»; политика читается в обеих
     формах (mapping и список), и шипящийся пример обязан объяснять каждое исключение.
     Проверено не на словах: первый реальный прогон нашёл дрейф в самом `Makefile`, а инъекция в копию
-    дерева дала `[unclassified] docs/private-note.md` и `[drift] scripts/check_loop.py: 1255 vs 1253`.
+    дерева дала `[unclassified] docs/private-note.md` и `[drift] loopgate/gates/check_loop.py: 1255 vs 1253`.
 47. ✅ `make parity POLICY=<json>` плюс строка в `make check`, срабатывающая только при наличии
     `configs/tree_parity.json`: дерево с политикой сравнивает себя на каждом прогоне, одиночный
     чек-аут печатает `tree parity: no configs/tree_parity.json here` вместо мнимой проверки. Политика
@@ -462,5 +462,5 @@ README на первом месте; лицензия и CI на месте; п�
 
 ## Критерий приёмки всего проекта
 
-`python3 scripts/check_loop.py --strict` печатает `LOOP_ENGINEERING_PASS_0001`, `exit 0`, а `handoff/`
+`python3 -m loopgate.gates.check_loop --strict` печатает `LOOP_ENGINEERING_PASS_0001`, `exit 0`, а `handoff/`
 содержит синтез и артефакты четырех ролей, воспроизводимые другим оператором.

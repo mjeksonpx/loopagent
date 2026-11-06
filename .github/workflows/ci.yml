@@ -40,8 +40,8 @@ jobs:
         # Proves the documented first-run path in CI: declare the cold start, then the gate must answer
         # LOOP_ENGINEERING_COLD_0001 (exit 0) instead of a fabricated PASS.
         run: |
-          python scripts/bootstrap_state.py --init
-          python scripts/check_loop.py --strict
+          python -m loopgate.gates.bootstrap_state --init
+          python -m loopgate.gates.check_loop --strict
 
       - name: Documented install order — declare cold, then run the full suite
         # The README's first-run path is: bootstrap_state.py --init, then make check. After the cold

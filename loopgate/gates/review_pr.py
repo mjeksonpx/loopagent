@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Second-level review: the whole pull request, read by an engine that did not write it.
 
-`scripts/worker_brief.py verify` proves the worker ran the bundle. It says nothing about whether the change
+`loopgate/gates/worker_brief.py verify` proves the worker ran the bundle. It says nothing about whether the change
 is a good idea: a worker can prove every gate and still ship the wrong design. This script sends the entire
 PR diff to an independent model through `ywcrew` (the only door to the CLI agents, per AGENTS.md), asks for
 a verdict, and either prints it or posts it as a PR review.
 
-    python3 scripts/review_pr.py --profile sample-service --pr 3 --dry-run     # build the brief, dispatch nothing
-    python3 scripts/review_pr.py --profile sample-service --pr 3               # dispatch, print the verdict
-    python3 scripts/review_pr.py --profile sample-service --pr 3 --post        # also post it to the PR
+    python3 -m loopgate.gates.review_pr --profile sample-service --pr 3 --dry-run     # build the brief, dispatch nothing
+    python3 -m loopgate.gates.review_pr --profile sample-service --pr 3               # dispatch, print the verdict
+    python3 -m loopgate.gates.review_pr --profile sample-service --pr 3 --post        # also post it to the PR
 
 Verdict: PR_REVIEW_PASS_0001 (exit 0) when the reviewer accepts the change; PR_REVIEW_STOP_0001 (exit 1)
 when it asks for changes, rejects it, or the dispatch cannot be made. A reviewer that cannot be reached is
@@ -21,6 +21,8 @@ paying three times for the same first look.
 
 from __future__ import annotations
 
+from loopgate.paths import TEMPLATES_DIR, project_root, gate_file
+
 import argparse
 import json
 import os
@@ -30,15 +32,14 @@ import subprocess
 import sys
 import tempfile
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = project_root()
 PASS_MARKER = "PR_REVIEW_PASS_0001"
 STOP_MARKER = "PR_REVIEW_STOP_0001"
 VERDICT_RE = re.compile(r"VERDICT\s*:\s*(APPROVE|CHANGES|REJECT)", re.I)
 MAX_DIFF_CHARS = 60_000
 
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
 try:
-    import worker_brief  # noqa: E402
+    from loopgate.gates import worker_brief  # noqa: E402
 except ImportError:  # pragma: no cover
     worker_brief = None
 
@@ -96,7 +97,7 @@ def build_task(profile: dict, repo: str, pr: int, meta: dict, diff: str, bundle:
             + (f" The pull request body:\n\n{(meta.get('body') or '')[:4000]}" if meta.get("body") else "")),
         "locations": ("The full diff is below and it is the whole change. Files touched: "
                       + (", ".join(files[:40]) if files else "(none reported)")
-                      + ". The repository's own gates live in scripts/ (check_loop.py, assert_dims.py, "
+                      + ". The repository's own gates live in loopgate/gates/ (check_loop.py, assert_dims.py, "
                         "regressions.py) and configs/repo_profiles.json."),
         "constraints": (
             "Read-only: propose changes, never rewrite the code. Do not comment on formatting that the "
@@ -226,7 +227,7 @@ def selftest() -> int:
         ("configs/fixtures/review_no_verdict.json", None, STOP_MARKER, 1),
     ]
     for path, expected_verdict, expected_marker, expected_rc in fixtures:
-        full_path = os.path.join(ROOT, path)
+        full_path = os.path.join(TEMPLATES_DIR, path)
         if not os.path.exists(full_path):
             print(f"selftest: missing fixture {path}", file=sys.stderr)
             return 1
@@ -238,9 +239,9 @@ def selftest() -> int:
             return 1
     # Run main() on all three fixtures to assert full end-to-end exit code and output
     for path, expected_verdict, expected_marker, expected_rc in fixtures:
-        full_path = os.path.join(ROOT, path)
+        full_path = os.path.join(TEMPLATES_DIR, path)
         proc = subprocess.run(
-            [sys.executable, __file__, "--profile", profile_name, "--pr", "0", "--result-file", full_path],
+            [sys.executable, "-m", "loopgate.gates.review_pr", "--profile", profile_name, "--pr", "0", "--result-file", full_path],
             capture_output=True, text=True
         )
         if proc.returncode != expected_rc:
@@ -256,8 +257,8 @@ def selftest() -> int:
 
     # Assert that --post is NOT attempted when the verdict is missing
     proc_post = subprocess.run(
-        [sys.executable, __file__, "--profile", profile_name, "--pr", "0",
-         "--result-file", os.path.join(ROOT, "configs/fixtures/review_no_verdict.json"), "--post"],
+        [sys.executable, "-m", "loopgate.gates.review_pr", "--profile", profile_name, "--pr", "0",
+         "--result-file", os.path.join(TEMPLATES_DIR, "configs", "fixtures", "review_no_verdict.json"), "--post"],
         capture_output=True, text=True
     )
     if proc_post.returncode != 1:

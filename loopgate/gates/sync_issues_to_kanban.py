@@ -10,7 +10,7 @@ Roles of the two sides
 What the bridge guarantees
 --------------------------
 * **One task = one PR**: one open issue produces exactly one kanban task, whose body is the worker brief
-  rendered by ``scripts/worker_brief.py`` (mandatory evidence bundle included, not implied).
+  rendered by ``loopgate/gates/worker_brief.py`` (mandatory evidence bundle included, not implied).
 * **Idempotence**: the task carries the issue-derived idempotency key ``<exporter>-<owner>-<repo>-<n>``;
   a second run reports the task as already queued instead of minting a duplicate. The exporter prefix is
   part of the key, so a file export can never collide with a live ``gh`` key space it does not own.
@@ -29,17 +29,19 @@ acceptance criteria) and says so in its report.
 
 Usage
 -----
-    python3 scripts/sync_issues_to_kanban.py --profile sample-service                    # dry run, live gh
-    python3 scripts/sync_issues_to_kanban.py --profile sample-service --issues-file configs/fixtures/issues_sample.json
-    python3 scripts/sync_issues_to_kanban.py --profile sample-service --issues-file issues.json \
+    python3 -m loopgate.gates.sync_issues_to_kanban --profile sample-service                    # dry run, live gh
+    python3 -m loopgate.gates.sync_issues_to_kanban --profile sample-service --issues-file configs/fixtures/issues_sample.json
+    python3 -m loopgate.gates.sync_issues_to_kanban --profile sample-service --issues-file issues.json \
         --exported-by gh --apply --target backlog      # a file that IS the source of truth
-    python3 scripts/sync_issues_to_kanban.py --profile sample-service --apply            # queue for real
-    python3 scripts/sync_issues_to_kanban.py --profile sample-service --selftest         # prove the write path
+    python3 -m loopgate.gates.sync_issues_to_kanban --profile sample-service --apply            # queue for real
+    python3 -m loopgate.gates.sync_issues_to_kanban --profile sample-service --selftest         # prove the write path
 
 Exit 0 prints ``ISSUE_BRIDGE_PASS_0001``; a failure prints ``ISSUE_BRIDGE_STOP_0001`` and exits 1.
 """
 
 from __future__ import annotations
+
+from loopgate.paths import project_root, gate_file
 
 import argparse
 import datetime as dt
@@ -49,11 +51,9 @@ import re
 import subprocess
 import sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)
-sys.path.insert(0, HERE)
+ROOT = project_root()
 
-import worker_brief  # noqa: E402  (sibling script: the canonical brief + validator)
+from loopgate.gates import worker_brief  # noqa: E402  (sibling script: the canonical brief + validator)
 
 PASS_MARKER = "ISSUE_BRIDGE_PASS_0001"
 STOP_MARKER = "ISSUE_BRIDGE_STOP_0001"
@@ -165,7 +165,7 @@ def exporter_error(name: str) -> str | None:
 
 
 def load_estimates(root: str = ROOT) -> dict:
-    """Per-assignee timeboxes measured from queue history (scripts/estimate_task.py writes this file)."""
+    """Per-assignee timeboxes measured from queue history (loopgate/gates/estimate_task.py writes this file)."""
     try:
         with open(os.path.join(root, ESTIMATES_REL), encoding="utf-8") as fh:
             return json.load(fh).get("assignees") or {}

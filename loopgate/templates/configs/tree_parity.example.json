@@ -3,13 +3,13 @@
   "a": "/path/to/development/tree",
   "b": "/path/to/published/tree",
   "must_match": [
-    "scripts/*.py",
+    "loopgate/gates/*.py",
     "Makefile",
     ".github/workflows/*.yml",
     "pyproject.toml"
   ],
   "may_differ": {
-    "scripts/private_tool.py": "development-only tooling that is not published",
+    "loopgate/gates/private_tool.py": "development-only tooling that is not published",
     "configs/*": "the development tree names real targets; the published tree carries sanitized ones",
     "README.md": "the published README is rewritten for strangers"
   }

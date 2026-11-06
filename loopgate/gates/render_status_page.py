@@ -12,6 +12,8 @@ is reproducible offline.
 
 from __future__ import annotations
 
+from loopgate.paths import project_root, gate_file
+
 import argparse
 import datetime as dt
 import html
@@ -20,7 +22,7 @@ import os
 import subprocess
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = project_root()
 OUT_REL = "artifacts/status.html"
 
 

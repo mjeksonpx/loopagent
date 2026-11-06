@@ -19,9 +19,9 @@ clone cannot produce it, and pretending otherwise would be the exact failure thi
 
 A gate dimension is only worth having if it can fail. Every new or changed dimension must come with:
 
-1. the check itself (`scripts/check_loop.py`), returning `OK` / `FAIL` / `SKIP` with a reason that names
+1. the check itself (`loopgate/gates/check_loop.py`), returning `OK` / `FAIL` / `SKIP` with a reason that names
    what is missing;
-2. **a falsification case in `scripts/regressions.py`** — inject the defect into a copy of the repository
+2. **a falsification case in `loopgate/gates/regressions.py`** — inject the defect into a copy of the repository
    and prove the gate reddens on *that* dimension (`R<n>` case);
 3. a line in the dimension table of `.agents/skills/loop-engineering/SKILL.md`, and in `README.md` if the
    user-visible verdict changes.
@@ -31,10 +31,10 @@ A dimension with no falsification case is a slogan: nobody can tell whether it h
 ## Working on the gates
 
 ```bash
-python3 scripts/check_loop.py --strict            # the gate (read-only; prints STOP/PASS + exit code)
-python3 scripts/regressions.py                    # 25+ injections, one copy per case
-python3 scripts/assert_dims.py --require D01 D06  # assert specific dimensions only
-python3 scripts/worker_brief.py profiles          # repository profiles this checkout knows
+python3 -m loopgate.gates.check_loop --strict            # the gate (read-only; prints STOP/PASS + exit code)
+python3 -m loopgate.gates.regressions                    # 25+ injections, one copy per case
+python3 -m loopgate.gates.assert_dims --require D01 D06  # assert specific dimensions only
+python3 -m loopgate.gates.worker_brief profiles          # repository profiles this checkout knows
 ```
 
 Two habits that keep the suite honest:

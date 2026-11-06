@@ -20,12 +20,14 @@ committing ``configs/task_estimates.json``. The bridge then applies the cap to e
 
 Usage
 -----
-    python3 scripts/estimate_task.py                 # show the measured distribution and the proposal
-    python3 scripts/estimate_task.py --write         # write configs/task_estimates.json (review, then commit)
-    python3 scripts/estimate_task.py --json
+    python3 -m loopgate.gates.estimate_task                 # show the measured distribution and the proposal
+    python3 -m loopgate.gates.estimate_task --write         # write configs/task_estimates.json (review, then commit)
+    python3 -m loopgate.gates.estimate_task --json
 """
 
 from __future__ import annotations
+
+from loopgate.paths import project_root, gate_file
 
 import argparse
 import datetime as dt
@@ -34,7 +36,7 @@ import os
 import subprocess
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = project_root()
 ESTIMATES_REL = "configs/task_estimates.json"
 MIN_CAP_MINUTES = 15
 ROUNDING_MINUTES = 5

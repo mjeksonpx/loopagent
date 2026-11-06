@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "note": "PER-REPOSITORY CONTRACT — this is the example shipped with the public tree, copied to configs/repo_profiles.json by scripts/export_public.py. Replace it with your own repository: the evidence bundle is the machine-readable form of the rule that a worker must prove EVERY gate its repository requires, not a subset. Add a profile before queueing issues for a new repository; the bridge refuses to mint a brief for an unknown profile (fail-closed). local_path may stay null: pass --repo-path, or set the environment variable named in local_path_env.",
+  "note": "PER-REPOSITORY CONTRACT — this is the example shipped with the public tree, copied to configs/repo_profiles.json by loopgate/gates/export_public.py. Replace it with your own repository: the evidence bundle is the machine-readable form of the rule that a worker must prove EVERY gate its repository requires, not a subset. Add a profile before queueing issues for a new repository; the bridge refuses to mint a brief for an unknown profile (fail-closed). local_path may stay null: pass --repo-path, or set the environment variable named in local_path_env.",
   "profiles": {
     "sample-service": {
       "repo": "example/sample-service",

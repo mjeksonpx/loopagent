@@ -8,15 +8,17 @@ owed, how each run ended, and the review trail — so the memory survives `git c
 
 Execution stays where it was: the board still dispatches, the ledger only records.
 
-    python3 scripts/render_task_ledger.py t_example
-    python3 scripts/render_task_ledger.py --all-done
-    python3 scripts/render_task_ledger.py t_example --dry-run
+    python3 -m loopgate.gates.render_task_ledger t_example
+    python3 -m loopgate.gates.render_task_ledger --all-done
+    python3 -m loopgate.gates.render_task_ledger t_example --dry-run
 
 Verdict: TASK_LEDGER_PASS_0001 (exit 0) when every requested card was rendered;
 TASK_LEDGER_STOP_0001 (exit 1) when a card is unknown or the ledger cannot be written.
 """
 
 from __future__ import annotations
+
+from loopgate.paths import project_root, gate_file
 
 import argparse
 import datetime
@@ -25,15 +27,14 @@ import os
 import sqlite3
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = project_root()
 PASS_MARKER = "TASK_LEDGER_PASS_0001"
 STOP_MARKER = "TASK_LEDGER_STOP_0001"
 KANBAN_DB = os.path.expanduser("~/.hermes/kanban.db")
 OUT_DIR = "backlog"
 
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
 try:
-    import worker_brief  # noqa: E402
+    from loopgate.gates import worker_brief  # noqa: E402
 except ImportError:  # pragma: no cover - the ledger must still render without the brief module
     worker_brief = None
 
@@ -121,7 +122,7 @@ def spec_from_body(body: str) -> str:
 
     The bridge stores the rendered brief as the card body, so copying it here would duplicate the bundle
     and the constraints in every ledger file. The binding part is the issue text; the rest is regenerable
-    with `scripts/worker_brief.py build`.
+    with `loopgate/gates/worker_brief.py build`.
     """
     marker = "## Issue body (binding acceptance criteria)"
     if marker in body:
@@ -239,7 +240,7 @@ def render(task: dict, runs: list[dict], comments: list[dict]) -> str:
     add("")
     # No render timestamp on purpose: a clock in the artefact makes every re-render a diff, and a ledger
     # that churns is a ledger nobody reads. The history lives in git, which already records when.
-    add("_Rendered from the board by `scripts/render_task_ledger.py`. "
+    add("_Rendered from the board by `loopgate/gates/render_task_ledger.py`. "
         "The board decides, the ledger remembers._")
     add("")
     return "\n".join(lines)

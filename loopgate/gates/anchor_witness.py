@@ -21,14 +21,16 @@ operator-run step that verifies the published copy.
 
 Usage
 -----
-    python3 scripts/anchor_witness.py sign              # sign the current anchor
-    python3 scripts/anchor_witness.py verify            # local: signature over the current anchor
-    python3 scripts/anchor_witness.py publish           # post digest+signature to the witness log
-    python3 scripts/anchor_witness.py check-external    # read the log back and compare digests
-    python3 scripts/anchor_witness.py status
+    python3 -m loopgate.gates.anchor_witness sign              # sign the current anchor
+    python3 -m loopgate.gates.anchor_witness verify            # local: signature over the current anchor
+    python3 -m loopgate.gates.anchor_witness publish           # post digest+signature to the witness log
+    python3 -m loopgate.gates.anchor_witness check-external    # read the log back and compare digests
+    python3 -m loopgate.gates.anchor_witness status
 """
 
 from __future__ import annotations
+
+from loopgate.paths import project_root, gate_file
 
 import argparse
 import hashlib
@@ -37,7 +39,7 @@ import os
 import subprocess
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = project_root()
 ANCHOR_REL = "artifacts/loop_gate_pass.json"
 VERDICT_REL = "artifacts/loop_gate_verdict.txt"
 # ssh-keygen writes <message>.sig next to the message, so the signature lives beside the signed payload.

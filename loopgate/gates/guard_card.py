@@ -6,12 +6,12 @@ stuck card and still hand back nothing. The dispatcher already enforces a wall-c
 (`--max-runtime`); this script covers the two things a clock cannot see — money spent (tokens) and
 progress made (new commits in the run's workspace).
 
-    python3 scripts/guard_card.py                                  # report only, database source
-    python3 scripts/guard_card.py --json
-    python3 scripts/guard_card.py --enforce                        # SIGTERM + block + comment
-    python3 scripts/guard_card.py --snapshot queue.json            # no database, no runtime
-    python3 scripts/guard_card.py --snapshot queue.json --json
-    python3 scripts/guard_card.py --selftest                       # prove every rule on fixtures
+    python3 -m loopgate.gates.guard_card                                  # report only, database source
+    python3 -m loopgate.gates.guard_card --json
+    python3 -m loopgate.gates.guard_card --enforce                        # SIGTERM + block + comment
+    python3 -m loopgate.gates.guard_card --snapshot queue.json            # no database, no runtime
+    python3 -m loopgate.gates.guard_card --snapshot queue.json --json
+    python3 -m loopgate.gates.guard_card --selftest                       # prove every rule on fixtures
 
 Verdict: CARD_BUDGET_STOP_0001 (exit 1) names every offending card and the rule it broke;
 CARD_BUDGET_PASS_0001 (exit 0) means every active run is inside its budget.
@@ -44,13 +44,15 @@ Limits of the measurement, stated so nobody over-reads the number
 * A run whose workspace is not a git repository reports progress as `unknown` rather than "none", so a
   missing workspace never manufactures a "no progress" stop.
 * The budget values are a starting point to be re-measured from finished runs
-  (`scripts/estimate_task.py` does the same for time).
+  (`loopgate/gates/estimate_task.py` does the same for time).
 * `--enforce` against a snapshot can only signal a live `worker_pid`: there is no queue CLI to comment or
   block on, so the board is deliberately left alone and the action list says so. Signaling is refused
   (`EPERM`/`ESRCH`) rather than escalated.
 """
 
 from __future__ import annotations
+
+from loopgate.paths import project_root, gate_file
 
 import argparse
 import contextlib
@@ -64,7 +66,7 @@ import sys
 import tempfile
 import time
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = project_root()
 PASS_MARKER = "CARD_BUDGET_PASS_0001"
 STOP_MARKER = "CARD_BUDGET_STOP_0001"
 SELFTEST_MARKER = "CARD_BUDGET_SELFTEST_PASS_0001"

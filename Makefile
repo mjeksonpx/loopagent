@@ -21,42 +21,42 @@ help:
 	@echo "make clean     remove build and export byproducts"
 
 doctor:
-	$(PYTHON) scripts/doctor.py
+	$(PYTHON) -m loopgate.gates.doctor
 
 guard:
-	$(PYTHON) scripts/guard_card.py
+	$(PYTHON) -m loopgate.gates.guard_card
 
 ledger:
-	$(PYTHON) scripts/render_task_ledger.py --all-done
+	$(PYTHON) -m loopgate.gates.render_task_ledger --all-done
 
 health:
-	$(PYTHON) scripts/change_health.py
+	$(PYTHON) -m loopgate.gates.change_health
 
 gate:
-	$(PYTHON) scripts/check_loop.py --strict
+	$(PYTHON) -m loopgate.gates.check_loop --strict
 
 product:
-	$(PYTHON) scripts/check_product.py
+	$(PYTHON) -m loopgate.gates.check_product
 
 visual:
-	$(PYTHON) scripts/check_visual.py
+	$(PYTHON) -m loopgate.gates.check_visual
 
 parity:
 	@test -n "$(POLICY)" || { echo "make parity needs POLICY=<json>; see configs/tree_parity.example.json"; exit 2; }
-	$(PYTHON) scripts/tree_parity.py --policy $(POLICY)
+	$(PYTHON) -m loopgate.gates.tree_parity --policy $(POLICY)
 
 regress:
-	$(PYTHON) scripts/regressions.py
+	$(PYTHON) -m loopgate.gates.regressions
 
 check:
-	$(PYTHON) -m compileall -q loopgate scripts
-	$(PYTHON) scripts/assert_dims.py --require D01 D02 D06 D07 D10 D11 D13
-	$(PYTHON) scripts/regressions.py
-	$(PYTHON) scripts/review_pr.py --selftest
-	$(PYTHON) scripts/guard_card.py --selftest
-	$(PYTHON) scripts/tree_parity.py --selftest
+	$(PYTHON) -m compileall -q loopgate
+	$(PYTHON) -m loopgate.gates.assert_dims --require D01 D02 D06 D07 D10 D11 D13
+	$(PYTHON) -m loopgate.gates.regressions
+	$(PYTHON) -m loopgate.gates.review_pr --selftest
+	$(PYTHON) -m loopgate.gates.guard_card --selftest
+	$(PYTHON) -m loopgate.gates.tree_parity --selftest
 	@if [ -f configs/tree_parity.json ]; then \
-		$(PYTHON) scripts/tree_parity.py --policy configs/tree_parity.json; \
+		$(PYTHON) -m loopgate.gates.tree_parity --policy configs/tree_parity.json; \
 	else \
 		echo "tree parity: no configs/tree_parity.json here - this checkout is not compared against another"; \
 	fi
@@ -64,7 +64,7 @@ check:
 ci: check
 
 export:
-	$(PYTHON) scripts/export_public.py --out dist/public --git-init
+	$(PYTHON) -m loopgate.gates.export_public --out dist/public --git-init
 
 test: check
 

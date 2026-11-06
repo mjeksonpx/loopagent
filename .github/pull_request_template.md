@@ -19,12 +19,12 @@ exit=0
 
 ## Gate dimensions touched
 
-<!-- Which dimension(s) does this change affect, and which falsification case in scripts/regressions.py
+<!-- Which dimension(s) does this change affect, and which falsification case in loopgate/gates/regressions.py
      proves the dimension can still fail? A dimension without a regression case is a slogan. -->
 
 - dimensions:
 - new/changed regression case:
-- `python3 scripts/regressions.py` result:
+- `python3 -m loopgate.gates.regressions` result:
 
 ## Limits and known gaps
 

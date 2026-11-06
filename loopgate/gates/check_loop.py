@@ -25,9 +25,9 @@ the gate makes fabrication *detectable by a command*, not impossible.
 
 Usage
 -----
-    python3 scripts/check_loop.py            # normal mode: optional dims may SKIP
-    python3 scripts/check_loop.py --strict   # SKIP becomes FAIL (project acceptance)
-    python3 scripts/check_loop.py --report artifacts/loop_gate_report.json
+    python3 -m loopgate.gates.check_loop            # normal mode: optional dims may SKIP
+    python3 -m loopgate.gates.check_loop --strict   # SKIP becomes FAIL (project acceptance)
+    python3 -m loopgate.gates.check_loop --report artifacts/loop_gate_report.json
 """
 
 from __future__ import annotations
@@ -40,13 +40,15 @@ import re
 import shutil
 import sys
 
+from loopgate.paths import gate_file, project_root
+
 MARKER_PASS = "LOOP_ENGINEERING_PASS_0001"
 MARKER_STOP = "LOOP_ENGINEERING_STOP_0001"
 # Third verdict for a tree that has never run the loop: the code can be checked, the history cannot be
-# proven and must not be invented. See scripts/bootstrap_state.py and PLANS п.29.
+# proven and must not be invented. See loopgate/gates/bootstrap_state.py and PLANS п.29.
 MARKER_COLD = "LOOP_ENGINEERING_COLD_0001"
 COLD_DIMS = {"D03", "D04", "D05", "D09", "D12"}
-HEALTH_SCRIPT = "scripts/change_health.py"
+HEALTH_SCRIPT = "loopgate/gates/change_health.py"
 HEALTH_POLICY_REL = "configs/change_health.json"
 HEALTH_BASELINE_REL = "configs/change_health_baseline.json"
 # Inputs the project deliberately does not ship. Absent input is not a defect of the tree under test.
@@ -56,32 +58,33 @@ TEXT_EXT = {".py", ".md", ".txt", ".sh", ".json", ".yml", ".yaml", ".toml", ".cf
 SKIP_DIRS = {".git", "course", "__pycache__", ".venv", "venv", "node_modules", ".idea", ".DS_Store",
              # build output: a publication tree is a copy of this repository, and auditing the copy as if
              # it were source makes the gate flag its own guardrail patterns (`dist/public/scripts/...`).
-             "dist"}
+             # `build/` is what `pip wheel` leaves inside the project: a copy of the package, not source.
+             "dist", "build"}
 
 DIM_IDS = ["D01", "D02", "D03", "D04", "D05", "D06", "D07", "D08", "D09", "D10"]
 # Dimensions that may legitimately SKIP in normal mode (their input is produced by an optional stage, or
 # is not shipped in this tree: the course corpus is study material, not part of the tool).
 OPTIONAL_DIMS = {"D09", "D08"}
-GATE_SCRIPT = "scripts/check_loop.py"
-GATE_CMD = "python3 scripts/check_loop.py"
+GATE_SCRIPT = "loopgate/gates/check_loop.py"
+GATE_CMD = "python3 -m loopgate.gates.check_loop"
 REPORT_REL = "artifacts/loop_gate_report.json"
 # Stage 6 (issue queue): the bridge plus the worker brief it renders.
-BRIDGE_SCRIPT = "scripts/sync_issues_to_kanban.py"
-BRIEF_SCRIPT = "scripts/worker_brief.py"
+BRIDGE_SCRIPT = "loopgate/gates/sync_issues_to_kanban.py"
+BRIEF_SCRIPT = "loopgate/gates/worker_brief.py"
 PROFILES_REL = "configs/repo_profiles.json"
 # Stage 7 (product acceptance): the second verdict, with its own owner and its own gate.
-PRODUCT_SCRIPT = "scripts/check_product.py"
+PRODUCT_SCRIPT = "loopgate/gates/check_product.py"
 PRODUCT_SCENARIOS_REL = "configs/product_scenarios.json"
 # Stage 7b (external anchor): the verdict leaves the machine.
-WITNESS_SCRIPT = "scripts/anchor_witness.py"
+WITNESS_SCRIPT = "loopgate/gates/anchor_witness.py"
 WITNESS_CONFIG_REL = "configs/anchor_witness.json"
 ALLOWED_SIGNERS_REL = "configs/allowed_signers"
 ANCHOR_SIG_REL = "artifacts/loop_gate_verdict.txt.sig"
 WITNESS_RECORD_REL = "artifacts/anchor_witness.json"
 # Stage 7c (visual checks): what a user sees, not only what the JSON says.
-VISUAL_SCRIPT = "scripts/check_visual.py"
+VISUAL_SCRIPT = "loopgate/gates/check_visual.py"
 VISUAL_SCENARIOS_REL = "configs/visual_scenarios.json"
-STATUS_PAGE_SCRIPT = "scripts/render_status_page.py"
+STATUS_PAGE_SCRIPT = "loopgate/gates/render_status_page.py"
 # The brief must itself carry the evidence rule, and the validator must be able to reject a bundle
 # that is incomplete or failing — the exact gap that produced the first PR's REJECT.
 BRIEF_REQUIREMENTS = ["evidence bundle", "verbatim", "exit", "one task = one pr", "NOT RUN"]
@@ -130,6 +133,13 @@ class Dim:
     def __init__(self, ident, title, ok, detail, skip=False, reasons=None):
         self.ident, self.title, self.ok, self.detail, self.skip = ident, title, ok, detail, skip
         self.reasons = reasons or []
+
+
+def _present(root, rel):
+    """Packaged gate scripts live in the installed tool; everything else lives in the judged project."""
+    if rel.startswith("loopgate/gates/"):
+        return os.path.exists(gate_file(os.path.basename(rel)[:-3]))
+    return os.path.exists(os.path.join(root, rel))
 
 
 def read(path):
@@ -591,12 +601,12 @@ def dim_issue_bridge(root):
     """
     reasons = []
     for rel in (BRIDGE_SCRIPT, BRIEF_SCRIPT, PROFILES_REL):
-        if not os.path.exists(os.path.join(root, rel)):
+        if not _present(root, rel):
             reasons.append(f"{rel} missing")
     if reasons:
         return Dim("D10", "issue_bridge", False, "issue bridge incomplete", reasons=reasons)
 
-    brief_path = os.path.join(root, "scripts", "worker_brief.py")
+    brief_path = gate_file("worker_brief")
     try:
         import importlib.util
         spec = importlib.util.spec_from_file_location("loop_worker_brief", brief_path)
@@ -737,7 +747,7 @@ def dim_product_gate(root):
     """
     reasons = []
     for rel in (PRODUCT_SCRIPT, PRODUCT_SCENARIOS_REL):
-        if not os.path.exists(os.path.join(root, rel)):
+        if not _present(root, rel):
             reasons.append(f"{rel} missing")
     if reasons:
         return Dim("D11", "product_gate", False, "product gate incomplete", reasons=reasons)
@@ -745,7 +755,7 @@ def dim_product_gate(root):
     try:
         import importlib.util
         spec = importlib.util.spec_from_file_location("loop_check_product",
-                                                     os.path.join(root, PRODUCT_SCRIPT))
+                                                     gate_file("check_product"))
         if spec is None or spec.loader is None:
             raise ImportError("cannot load a module spec for the product gate")
         product = importlib.util.module_from_spec(spec)
@@ -866,7 +876,7 @@ def dim_anchor_witness(root):
                    reasons=[f"{rel} is produced by a real gate run, not by the export" for rel in missing_state])
     reasons = []
     for rel in (WITNESS_SCRIPT, ALLOWED_SIGNERS_REL, WITNESS_CONFIG_REL, ANCHOR_SIG_REL, WITNESS_RECORD_REL):
-        if not os.path.exists(os.path.join(root, rel)):
+        if not _present(root, rel):
             reasons.append(f"{rel} missing")
     if reasons:
         return Dim("D12", "anchor_witness", False, "anchor witness incomplete", reasons=reasons)
@@ -874,7 +884,7 @@ def dim_anchor_witness(root):
     try:
         import importlib.util
         spec = importlib.util.spec_from_file_location("loop_anchor_witness",
-                                                     os.path.join(root, WITNESS_SCRIPT))
+                                                     gate_file("anchor_witness"))
         if spec is None or spec.loader is None:
             raise ImportError("cannot load a module spec for the anchor witness")
         witness = importlib.util.module_from_spec(spec)
@@ -935,7 +945,9 @@ def dim_anchor_witness(root):
 def _good_visual_observation(scenario):
     exp = scenario.get("expect") or {}
     dom = "".join(exp.get("require_text") or []) + ("x" * int(exp.get("min_bytes") or 0))
-    return {"dom": dom, "screenshot": __file__, "screenshot_bytes": int(exp.get("min_bytes") or 30000) + 1}
+    # The screenshot is a real file that exists in any install: the gate itself. D13 requires os.path.exists().
+    return {"dom": dom, "screenshot": os.path.realpath(__file__),
+            "screenshot_bytes": int(exp.get("min_bytes") or 30000) + 1}
 
 
 def dim_change_health(root):
@@ -949,13 +961,13 @@ def dim_change_health(root):
     """
     script_rel, policy_rel, baseline_rel = (HEALTH_SCRIPT, HEALTH_POLICY_REL, HEALTH_BASELINE_REL)
     missing = [rel for rel in (script_rel, policy_rel, baseline_rel)
-               if not os.path.exists(os.path.join(root, rel))]
+               if not _present(root, rel)]
     if missing:
         return Dim("D14", "change_health", False, "third verdict missing", reasons=[f"{rel} missing" for rel in missing])
 
     try:
         import importlib.util
-        spec = importlib.util.spec_from_file_location("loop_change_health", os.path.join(root, script_rel))
+        spec = importlib.util.spec_from_file_location("loop_change_health", gate_file("change_health"))
         if spec is None or spec.loader is None:
             raise ImportError("cannot load a module spec for change_health")
         health = importlib.util.module_from_spec(spec)
@@ -1020,7 +1032,7 @@ def dim_visual_gate(root):
     """
     reasons = []
     for rel in (VISUAL_SCRIPT, VISUAL_SCENARIOS_REL, STATUS_PAGE_SCRIPT):
-        if not os.path.exists(os.path.join(root, rel)):
+        if not _present(root, rel):
             reasons.append(f"{rel} missing")
     if reasons:
         return Dim("D13", "visual_gate", False, "visual gate incomplete", reasons=reasons)
@@ -1028,7 +1040,7 @@ def dim_visual_gate(root):
     try:
         import importlib.util
         spec = importlib.util.spec_from_file_location("loop_check_visual",
-                                                     os.path.join(root, VISUAL_SCRIPT))
+                                                     gate_file("check_visual"))
         if spec is None or spec.loader is None:
             raise ImportError("cannot load a module spec for the visual gate")
         visual = importlib.util.module_from_spec(spec)
@@ -1096,7 +1108,7 @@ def dim_visual_gate(root):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Loop-system local gate (read-only).")
-    ap.add_argument("--root", default=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    ap.add_argument("--root", default=project_root())
     ap.add_argument("--strict", action="store_true",
                     help="treat SKIP dimensions as failures (this is the project acceptance mode)")
     ap.add_argument("--report", help="write a JSON summary to this path (only write the gate performs)")
@@ -1106,11 +1118,13 @@ def main(argv=None):
     # The gate's own source and the machine-written report echo gate output verbatim — they are the
     # checker talking about itself, so guardrail scans skip them. Everything else in the tree is scanned.
     skip_paths = {
-        os.path.realpath(os.path.abspath(__file__)),
+        # The gate's own source, found inside the judged tree. __file__ is the copy that runs, which is not
+        # necessarily the file inside `root` (a regression copy runs the gate from the installed package).
+        os.path.realpath(os.path.join(root, GATE_SCRIPT)),
         os.path.realpath(os.path.join(root, REPORT_REL)),
         os.path.realpath(os.path.join(root, PASS_REL)),
     }
-    print("LOOP GATE — scripts/check_loop.py (read-only)")
+    print("LOOP GATE — loopgate/gates/check_loop.py (read-only)")
     print(f"root: {root}")
     print(f"mode: {'strict' if args.strict else 'normal'}")
     print()
@@ -1185,7 +1199,7 @@ def main(argv=None):
           + f" (mandatory: {len(dims) - len(OPTIONAL_DIMS)}, optional: {len(OPTIONAL_DIMS)})")
     if skipped and not args.strict:
         print("note: an optional dimension was skipped — project acceptance requires "
-              "`python3 scripts/check_loop.py --strict` (see PLANS.md)")
+              "`python3 -m loopgate.gates.check_loop --strict` (see PLANS.md)")
     if cold_skips:
         print(f"cold start: {len(cold_skips)} state dimension(s) cannot be proven in this tree "
               f"({', '.join(d.ident for d in cold_skips)}). Run the loop once, then re-check.")

@@ -1,5 +1,5 @@
 {
-  "note": "Budgets per card. Values are starting points measured in the spirit of scripts/estimate_task.py: raise them from finished runs instead of guessing, and set them low enough that a stuck card is cheaper than a good one. max_tokens counts input + output + cache read + cache write for the worker session only.",
+  "note": "Budgets per card. Values are starting points measured in the spirit of loopgate/gates/estimate_task.py: raise them from finished runs instead of guessing, and set them low enough that a stuck card is cheaper than a good one. max_tokens counts input + output + cache read + cache write for the worker session only.",
   "default": {
     "max_tokens": 250000,
     "max_runs": 3,

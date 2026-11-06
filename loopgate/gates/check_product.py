@@ -3,7 +3,7 @@
 
 Why a second gate
 -----------------
-``scripts/check_loop.py`` answers "is this loop disciplined?" — contracts, evidence, state, guardrails.
+``loopgate/gates/check_loop.py`` answers "is this loop disciplined?" — contracts, evidence, state, guardrails.
 It cannot answer "can a user do their job with this product?", and merging the two lets a green technical
 gate hide a product that does not start. The chief accepts by this gate; the tech gate stays a separate
 verdict with a separate owner.
@@ -21,13 +21,15 @@ Contract
 
 Usage
 -----
-    python3 scripts/check_product.py --list
-    python3 scripts/check_product.py                 # normal mode: optional scenarios may SKIP
-    python3 scripts/check_product.py --strict        # SKIP becomes FAIL (product acceptance)
-    python3 scripts/check_product.py --scenario P06 --verbose
+    python3 -m loopgate.gates.check_product --list
+    python3 -m loopgate.gates.check_product                 # normal mode: optional scenarios may SKIP
+    python3 -m loopgate.gates.check_product --strict        # SKIP becomes FAIL (product acceptance)
+    python3 -m loopgate.gates.check_product --scenario P06 --verbose
 """
 
 from __future__ import annotations
+
+from loopgate.paths import project_root, gate_file
 
 import argparse
 import datetime as dt
@@ -39,8 +41,7 @@ import subprocess
 import sys
 import time
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)
+ROOT = project_root()
 PASS_MARKER = "PRODUCT_ACCEPTANCE_PASS_0001"
 STOP_MARKER = "PRODUCT_ACCEPTANCE_STOP_0001"
 SCENARIOS_REL = "configs/product_scenarios.json"
@@ -360,7 +361,7 @@ def main(argv=None) -> int:
             return 2
 
     path = args.repo_path or repo_path(args.root, profile)
-    print("PRODUCT ACCEPTANCE GATE — scripts/check_product.py")
+    print("PRODUCT ACCEPTANCE GATE — loopgate/gates/check_product.py")
     print(f"product: {config['product']}  source: {path or '(not configured)'}")
     print(f"mode: {'strict' if args.strict else 'normal'}")
     print()

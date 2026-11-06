@@ -5,7 +5,8 @@
 ### Accept agent work by proof, not by confidence.
 
 A stdlib-only gate that refuses to take an agent's word: it runs the commands, prints one marker,
-and exits non-zero until the evidence matches the claim.
+and exits non-zero until the evidence matches the claim. It ships as a pip package (`loopgate`) with the
+gates inside, plus a skill (`loop-engineering`) that tells an agent how to work inside the loop.
 
 [![license](https://img.shields.io/badge/license-MIT-3DA639?style=for-the-badge)](LICENSE)
 [![python](https://img.shields.io/badge/python-3.9%2B%20%7C%203.12-3776AB?style=for-the-badge&logo=python&logoColor=white)](#install)
@@ -16,7 +17,7 @@ and exits non-zero until the evidence matches the claim.
 </div>
 
 ```
-$ python3 scripts/check_loop.py --strict   # abridged: fourteen dimensions, six shown here
+$ python3 -m loopgate.gates.check_loop --strict   # abridged: fourteen dimensions, six shown here
 D01 contract_skill             [OK] .agents/skills/loop-engineering/SKILL.md contract complete
 D02 sources_of_truth           [OK] AGENTS.md + PLANS.md + README.md carry the contract and the gate command
 D03 loop_state                 [OK] artifacts/loop_state.json schema + monotone history ok
@@ -48,9 +49,9 @@ fourteen dimensions, a marker, and an exit code.
 
 | Verdict | Question it answers | Command |
 |---|---|---|
-| **Technical gate** | was the work actually done, on every gate this repository requires? | `python3 scripts/check_loop.py --strict` |
-| **Product gate** | can a user do their job with it? | `python3 scripts/check_product.py` |
-| **Change health** | did this change make the tree worse, even though every gate stayed green? | `python3 scripts/change_health.py` |
+| **Technical gate** | was the work actually done, on every gate this repository requires? | `python3 -m loopgate.gates.check_loop --strict` |
+| **Product gate** | can a user do their job with it? | `python3 -m loopgate.gates.check_product` |
+| **Change health** | did this change make the tree worse, even though every gate stayed green? | `python3 -m loopgate.gates.change_health` |
 
 Each verdict prints exactly one marker and one exit code. A marker is printed **only** by the gate that
 earned it — an agent that prints `LOOP_ENGINEERING_PASS_0001` itself is a bug, and one of the dimensions
@@ -95,14 +96,14 @@ check can never repair the thing it is checking.
 | `D14` | change_health | countable metrics compared to a baseline, in the direction that means "worse" |
 
 A dimension is worth having only if it can fail: every one of them comes with an injection in
-`scripts/regressions.py` that reddens the gate on *that* dimension. A dimension with no falsification
+`loopgate/gates/regressions.py` that reddens the gate on *that* dimension. A dimension with no falsification
 case is a slogan.
 
 ## Install
 
 ```bash
 git clone <this repo> && cd loopagent
-python3 scripts/doctor.py                   # what this interpreter can run, before yellow is a mystery
+python3 -m loopgate.gates.doctor                   # what this interpreter can run, before yellow is a mystery
 make check                                  # what CI runs: compile + code dimensions + regressions
 ```
 
@@ -111,10 +112,10 @@ migrate. Optional extras (`jsonschema` for one product scenario) degrade to a `S
 reason**, never to a silent PASS.
 
 ```bash
-python3 scripts/bootstrap_state.py --init   # first run: declare the cold start
+python3 -m loopgate.gates.bootstrap_state --init   # first run: declare the cold start
 # -> LOOP_STATE_COLD_0001   wrote artifacts/loop_state.json: state=cold, round=0
 
-python3 scripts/check_loop.py --strict
+python3 -m loopgate.gates.check_loop --strict
 # -> 8 ok, 0 fail, 5 cold, 1 n/a
 #    cold start: 5 state dimension(s) cannot be proven in this tree (D03, D04, D05, D09, D12)
 #    LOOP_ENGINEERING_COLD_0001        exit 0
@@ -127,10 +128,46 @@ directory.
 
 ```bash
 pip install -e ".[contracts]"               # optional: the `loopgate` command
-loopgate gate --strict                      # identical to the script; the wrapper only names it
+loopgate gate --strict                      # identical to the module; the command only names it
 loopgate status                             # both verdicts + the queue on one operator page
-loopgate --repo ../other gate --strict      # the same gate, run from another checkout
+loopgate --repo ../other gate --strict      # judge another project instead of the working directory
 ```
+
+## Use it in another project
+
+The gates ship inside the package, so a project does not need a copy of this repository:
+
+```bash
+pip install "git+https://github.com/mjeksonpx/loopagent.git"
+cd your-project                              # a git repository, or one with AGENTS.md
+loopgate init                                # writes the contract skill, AGENTS.md / PLANS.md / README.md,
+                                             # and declares the cold start (never a fabricated PASS)
+loopgate gate --strict                       # -> STOP: names what the project still has to configure
+```
+
+`init` never overwrites an existing `AGENTS.md`, `PLANS.md` or `README.md`, and it writes no round, handoff
+or anchor: those are evidence of a run. The first verdict is STOP, not COLD, because D10–D14 are facts about
+the project itself (its evidence bundle, product scenarios, signing key, visual scenarios, metric baseline).
+`init` lists each one; the gate never passes them on a template.
+
+### The skill
+
+`loopgate init` writes `.agents/skills/loop-engineering/SKILL.md`. It is the procedure an agent follows: when
+to start a loop, how to fill the run contract, how to repair one dimension per round, and when to stop.
+Read it before a task that needs more than one pass.
+
+Hermes loads project skills only from a trusted repository. The first run in a repo with project skills shows
+a notice; trust the repo once:
+
+```bash
+hermes skills trust                # from inside the project
+```
+
+Then start the session inside the project and ask for the task with the trigger words from the skill
+(`loop engineering`, `bounded loop`, `iterate until green`). The skill reads the gate; it does not replace it.
+
+Use the skill when the work needs rounds with evidence: a release gate, a refactor that must stay green,
+a multi-step fix. Skip it for a one-off edit that one command verifies.
 
 Python **3.9+** on paper, **3.12** in CI: one interpreter, so a green badge means "this runs", not
 "this may run somewhere". `loopgate <cmd>` forwards every argument to the script of the same name —
@@ -144,14 +181,14 @@ not steal it.
 ## Sixty seconds
 
 ```bash
-python3 scripts/check_loop.py
+python3 -m loopgate.gates.check_loop
 #  -> prints every dimension. State that belongs to a run is red here, because this tree has never
 #     run: the strict marker is not something you can clone.
 
-python3 scripts/assert_dims.py --require D01 D02 D06 D07 D10 D11 D13
+python3 -m loopgate.gates.assert_dims --require D01 D02 D06 D07 D10 D11 D13
 #  -> CI_DIMS_PASS_0001. These depend only on the code — which is what CI can honestly assert.
 
-python3 scripts/regressions.py
+python3 -m loopgate.gates.regressions
 #  -> REGRESSION_SUITE_PASS_0001. 26 defects are injected into copies of this repository and the gate
 #     must redden on the expected dimension each time. A case that targets loop state prints [skip]
 #     with its reason in a tree without that state: never counted as a pass, never a fail.
@@ -169,8 +206,8 @@ rare to prove that the check can fail.
 2. **Turn issues into cards** with the bundle inside them:
 
    ```bash
-   python3 scripts/sync_issues_to_kanban.py --profile sample-service          # dry run
-   python3 scripts/sync_issues_to_kanban.py --profile sample-service --target backlog --apply
+   python3 -m loopgate.gates.sync_issues_to_kanban --profile sample-service          # dry run
+   python3 -m loopgate.gates.sync_issues_to_kanban --profile sample-service --target backlog --apply
    #   -> backlog/<key>.md: task spec + mandatory commands + transcript contract, in git
    ```
 
@@ -180,7 +217,7 @@ rare to prove that the check can fail.
 3. **Check the transcript that comes back**:
 
    ```bash
-   python3 scripts/worker_brief.py verify --profile sample-service --evidence /tmp/transcript.md
+   python3 -m loopgate.gates.worker_brief verify --profile sample-service --evidence /tmp/transcript.md
    #  -> WORKER_EVIDENCE_PASS_0001 only when every mandatory command appears with its own exit code
    ```
 
@@ -232,7 +269,7 @@ projects above.
 
 Eleven stages are closed in [PLANS.md](PLANS.md) — from the skeleton and the role fan-out to the second
 and third verdicts, publication, and parity between two checkouts. The acceptance criterion for the whole
-project is not a sentence in a plan: it is `python3 scripts/check_loop.py --strict` printing
+project is not a sentence in a plan: it is `python3 -m loopgate.gates.check_loop --strict` printing
 `LOOP_ENGINEERING_PASS_0001` with `exit 0` on a tree that carries the loop's state.
 
 ## Layout
@@ -241,25 +278,25 @@ project is not a sentence in a plan: it is `python3 scripts/check_loop.py --stri
 <summary>19 scripts, one dispatcher, JSON configs — expand</summary>
 
 ```
-scripts/check_loop.py            technical gate: 14 dimensions, STOP/PASS marker, read-only
-scripts/check_product.py         product gate: user-facing scenarios with a stated consequence
-scripts/check_visual.py          visual gate: headless screenshot + DOM rules
-scripts/change_health.py         third verdict: countable metrics against a baseline or a git ref
-scripts/regressions.py           26 injections: proves the gate reddens on real defects
-scripts/assert_dims.py           CI: assert named dimensions are OK
-scripts/worker_brief.py          renders/verifies a worker brief (evidence bundle inside)
-scripts/sync_issues_to_kanban.py issues -> queue (--target kanban | backlog)
-scripts/review_pr.py             second-level review of a PR, with a print-only verdict
-scripts/guard_card.py            per-card budget: tokens, runs, the progress clock
-scripts/anchor_witness.py        signs the verdict; publishes its digest to an external journal
-scripts/tree_parity.py           two checkouts must not drift — a command, not an observation
-scripts/estimate_task.py         measured p50/p90 -> a runtime cap for the queue
-scripts/loop_watch.py            fingerprints the gate; silent unless something changed (cron-friendly)
-scripts/render_status_page.py    both verdicts and the queue as one operator page
-scripts/render_task_ledger.py    finished cards -> backlog/*.md (git is the memory)
-scripts/export_public.py         assembles a publication-ready tree, fail-closed
-scripts/bootstrap_state.py       cold start for a clean clone: state=cold, not a fake history
-scripts/doctor.py                interpreter, jsonschema, Chrome, gh, git — before yellow reads as a defect
+loopgate/gates/check_loop.py            technical gate: 14 dimensions, STOP/PASS marker, read-only
+loopgate/gates/check_product.py         product gate: user-facing scenarios with a stated consequence
+loopgate/gates/check_visual.py          visual gate: headless screenshot + DOM rules
+loopgate/gates/change_health.py         third verdict: countable metrics against a baseline or a git ref
+loopgate/gates/regressions.py           26 injections: proves the gate reddens on real defects
+loopgate/gates/assert_dims.py           CI: assert named dimensions are OK
+loopgate/gates/worker_brief.py          renders/verifies a worker brief (evidence bundle inside)
+loopgate/gates/sync_issues_to_kanban.py issues -> queue (--target kanban | backlog)
+loopgate/gates/review_pr.py             second-level review of a PR, with a print-only verdict
+loopgate/gates/guard_card.py            per-card budget: tokens, runs, the progress clock
+loopgate/gates/anchor_witness.py        signs the verdict; publishes its digest to an external journal
+loopgate/gates/tree_parity.py           two checkouts must not drift — a command, not an observation
+loopgate/gates/estimate_task.py         measured p50/p90 -> a runtime cap for the queue
+loopgate/gates/loop_watch.py            fingerprints the gate; silent unless something changed (cron-friendly)
+loopgate/gates/render_status_page.py    both verdicts and the queue as one operator page
+loopgate/gates/render_task_ledger.py    finished cards -> backlog/*.md (git is the memory)
+loopgate/gates/export_public.py         assembles a publication-ready tree, fail-closed
+loopgate/gates/bootstrap_state.py       cold start for a clean clone: state=cold, not a fake history
+loopgate/gates/doctor.py                interpreter, jsonschema, Chrome, gh, git — before yellow reads as a defect
 configs/                         repository profiles, scenarios, rules, example identities
 loopgate/                        the `loopgate` command: names for the scripts above
 ```

@@ -5,7 +5,7 @@
   "max_cards": 2,
   "budget_tokens": 400000,
   "roles": {
-    "note": "per-card ceilings used by scripts/guard_card.py; visible here so one file answers 'what may this run spend'",
+    "note": "per-card ceilings used by loopgate/gates/guard_card.py; visible here so one file answers 'what may this run spend'",
     "max_runs_per_card": 3,
     "max_runtime_minutes": 30
   }

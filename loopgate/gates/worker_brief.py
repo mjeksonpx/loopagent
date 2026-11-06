@@ -19,12 +19,14 @@ Contract
 
 Usage
 -----
-    python3 scripts/worker_brief.py profiles
-    python3 scripts/worker_brief.py build --profile sample-service --issue 42 --title "..." [--body "..."|--body-file f] [--url U] [--out PATH]
-    python3 scripts/worker_brief.py verify --profile sample-service --evidence PATH [--json]
+    python3 -m loopgate.gates.worker_brief profiles
+    python3 -m loopgate.gates.worker_brief build --profile sample-service --issue 42 --title "..." [--body "..."|--body-file f] [--url U] [--out PATH]
+    python3 -m loopgate.gates.worker_brief verify --profile sample-service --evidence PATH [--json]
 """
 
 from __future__ import annotations
+
+from loopgate.paths import project_root, gate_file
 
 import argparse
 import json
@@ -32,7 +34,7 @@ import os
 import re
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = project_root()
 PROFILES_REL = "configs/repo_profiles.json"
 PASS_MARKER = "WORKER_EVIDENCE_PASS_0001"
 STOP_MARKER = "WORKER_EVIDENCE_STOP_0001"

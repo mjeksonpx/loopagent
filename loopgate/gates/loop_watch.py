@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Change detector for the loop gate (the "report only on meaningful change" piece of stage 3).
 
-Runs ``scripts/check_loop.py`` and reduces the run to a small deterministic state fingerprint:
+Runs ``loopgate/gates/check_loop.py`` and reduces the run to a small deterministic state fingerprint:
 verdict marker, per-dimension statuses, the failure list, the loop metrics and the round. Compares it
 with the previous fingerprint stored in ``artifacts/loop_watch_last.json``:
 
@@ -14,11 +14,13 @@ The output contains no timestamps or paths that vary between runs, so identical 
 identical output (required for the cron monitor contract).
 
 Usage:
-    python3 scripts/loop_watch.py             # print only when the state changed
-    python3 scripts/loop_watch.py --force     # always print the current fingerprint
+    python3 -m loopgate.gates.loop_watch             # print only when the state changed
+    python3 -m loopgate.gates.loop_watch --force     # always print the current fingerprint
 """
 
 from __future__ import annotations
+
+from loopgate.paths import project_root, gate_file
 
 import argparse
 import json
@@ -26,8 +28,7 @@ import os
 import subprocess
 import sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)
+ROOT = project_root()
 REPORT = os.path.join(ROOT, "artifacts", "loop_watch_report.json")
 LAST = os.path.join(ROOT, "artifacts", "loop_watch_last.json")
 
@@ -35,7 +36,7 @@ LAST = os.path.join(ROOT, "artifacts", "loop_watch_last.json")
 def fingerprint() -> dict:
     """Run the gate and reduce it to a deterministic state fingerprint."""
     subprocess.run(
-        [sys.executable, os.path.join(HERE, "check_loop.py"), "--report", REPORT],
+        [sys.executable, "-m", "loopgate.gates.check_loop", "--report", REPORT],
         cwd=ROOT,
         capture_output=True,
         text=True,

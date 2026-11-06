@@ -7,14 +7,16 @@ runs the gate there and asserts the expected marker AND the expected failing dim
 if the gate stays green (the check became vacuous) or if the wrong dimension reacts.
 
 Usage:
-    python3 scripts/regressions.py            # run all cases
-    python3 scripts/regressions.py --verbose  # print each case's gate output
+    python3 -m loopgate.gates.regressions            # run all cases
+    python3 -m loopgate.gates.regressions --verbose  # print each case's gate output
 
 Exit 0 prints ``REGRESSION_SUITE_PASS_0001``; any failed case prints ``REGRESSION_SUITE_STOP_0001``
 and exits 1.
 """
 
 from __future__ import annotations
+
+from loopgate.paths import PACKAGE_DIR, project_root, gate_file
 
 import argparse
 import hashlib
@@ -27,8 +29,7 @@ import sys
 import tempfile
 from typing import Callable
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)
+ROOT = project_root()
 GATE_PASS = "LOOP_ENGINEERING_PASS_0001"
 GATE_STOP = "LOOP_ENGINEERING_STOP_0001"
 # A tree that declared a cold start prints COLD, not STOP: the code dimensions are checked, the history
@@ -45,16 +46,23 @@ IGNORE = shutil.ignore_patterns(".git", "__pycache__", "*.pyc", "ywcrew")
 
 
 def make_copy() -> str:
+    """Copy the project AND the packaged gates. The injections edit the gate source inside the copy, so the
+    gate that runs is the one that was edited — never the installed package on the machine."""
     tmp = tempfile.mkdtemp(prefix="loop_regress_")
     dst = os.path.join(tmp, "repo")
     shutil.copytree(ROOT, dst, ignore=IGNORE, symlinks=True)
+    pkg_src = os.path.join(PACKAGE_DIR, "loopgate")
+    shutil.copytree(pkg_src, os.path.join(dst, "loopgate"), ignore=IGNORE, symlinks=True,
+                    dirs_exist_ok=True)
     return dst
 
 
 def run_gate(repo: str) -> tuple[str, list[str], list[str], str]:
+    # cwd=repo: `python -m loopgate...` resolves the package from the working directory first, so the
+    # injected copy's gate sources are the ones that run. Without it the original tree answers instead.
     proc = subprocess.run(
-        [sys.executable, os.path.join(repo, "scripts", "check_loop.py"), "--root", repo],
-        capture_output=True, text=True,
+        [sys.executable, "-m", "loopgate.gates.check_loop", "--root", repo],
+        capture_output=True, text=True, cwd=repo,
     )
     out = proc.stdout
     # Classify on the LAST non-empty line, never on a substring anywhere in stdout: dimension details quote
@@ -144,7 +152,7 @@ def fabricate_handoff_hash(repo: str) -> None:
 
 
 def add_direct_cli_call(repo: str) -> None:
-    with open(os.path.join(repo, "scripts", "_probe_direct_cli.sh"), "w", encoding="utf-8") as fh:
+    with open(os.path.join(repo, "loopgate", "gates", "_probe_direct_cli.sh"), "w", encoding="utf-8") as fh:
         fh.write('#!/bin/sh\ncodex exec --full-auto "fix it"\n')
 
 
@@ -179,7 +187,7 @@ def gut_evidence_bundle(repo: str) -> None:
 
 def neuter_evidence_validator(repo: str) -> None:
     """Make the bundle validator always accept: the rule is then printed but not enforced."""
-    path = os.path.join(repo, "scripts", "worker_brief.py")
+    path = os.path.join(repo, "loopgate", "gates", "worker_brief.py")
     text = open(path, encoding="utf-8").read()
     marker = 'def verify_evidence(profile: dict, transcript: str) -> list[str]:'
     assert marker in text
@@ -190,12 +198,12 @@ def neuter_evidence_validator(repo: str) -> None:
 
 
 def drop_issue_bridge(repo: str) -> None:
-    os.remove(os.path.join(repo, "scripts", "sync_issues_to_kanban.py"))
+    os.remove(os.path.join(repo, "loopgate", "gates", "sync_issues_to_kanban.py"))
 
 
 def drop_dispatch_constraints(repo: str) -> None:
     """The ywcrew task spec loses the bundle: the rule is prose again for the dispatch path."""
-    path = os.path.join(repo, "scripts", "worker_brief.py")
+    path = os.path.join(repo, "loopgate", "gates", "worker_brief.py")
     text = open(path, encoding="utf-8").read()
     assert '"constraints": constraints,' in text
     open(path, "w", encoding="utf-8").write(text.replace('"constraints": constraints,', '"constraints": "",'))
@@ -207,7 +215,7 @@ def borrow_exit_code(repo: str) -> None:
     The validator is patched to accept any exit line after a command (the old free-floating window)
     instead of an exit line inside that command's own block; D10's fifth falsification must catch it.
     """
-    path = os.path.join(repo, "scripts", "worker_brief.py")
+    path = os.path.join(repo, "loopgate", "gates", "worker_brief.py")
     text = open(path, encoding="utf-8").read()
     old = ("            codes = [m.group(1) for _, text, _ in block for m in [EXIT_LINE_RE.match(text)] if m]")
     assert old in text, "validator shape changed: update this injector"
@@ -222,7 +230,7 @@ def first_match_only(repo: str) -> None:
     Second live review (harness, read-only, run 2026-10-12-309f9098) found this: a transcript where a
     command passed and then failed again reported a clean bundle. D10's sixth falsification must catch it.
     """
-    path = os.path.join(repo, "scripts", "worker_brief.py")
+    path = os.path.join(repo, "loopgate", "gates", "worker_brief.py")
     text = open(path, encoding="utf-8").read()
     old = "        for occurrence, idx in enumerate(matches, 1):"
     assert old in text
@@ -241,7 +249,7 @@ def drop_scenario_whys(repo: str) -> None:
 
 def neuter_product_evaluator(repo: str) -> None:
     """Make the product evaluator accept everything: the second gate becomes decoration."""
-    path = os.path.join(repo, "scripts", "check_product.py")
+    path = os.path.join(repo, "loopgate", "gates", "check_product.py")
     text = open(path, encoding="utf-8").read()
     old = '    exp = scenario.get("expect") or {}\n    reasons: list[str] = []'
     assert old in text, "product evaluator shape changed: update this injector"
@@ -289,7 +297,7 @@ def strip_visual_whys(repo: str) -> None:
 
 def neuter_visual_evaluator(repo: str) -> None:
     """Make the visual evaluator accept every page: the visual gate becomes a screenshot generator."""
-    path = os.path.join(repo, "scripts", "check_visual.py")
+    path = os.path.join(repo, "loopgate", "gates", "check_visual.py")
     text = open(path, encoding="utf-8").read()
     old = '    exp = scenario.get("expect") or {}\n    dom = observation.get("dom") or ""'
     assert old in text, "visual evaluator shape changed: update this injector"
