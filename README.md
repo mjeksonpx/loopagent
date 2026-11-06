@@ -9,6 +9,7 @@ and exits non-zero until the evidence matches the claim. It ships as a pip packa
 gates inside, plus a skill (`loop-engineering`) that tells an agent how to work inside the loop.
 
 [![license](https://img.shields.io/badge/license-MIT-3DA639?style=for-the-badge)](LICENSE)
+[![pypi](https://img.shields.io/pypi/v/loopagent-gate?style=for-the-badge&label=pypi&color=3776AB)](https://pypi.org/project/loopagent-gate/)
 [![python](https://img.shields.io/badge/python-3.9%2B%20%7C%203.12-3776AB?style=for-the-badge&logo=python&logoColor=white)](#install)
 [![dependencies](https://img.shields.io/badge/dependencies-0-6E56CF?style=for-the-badge)](#install)
 [![dimensions](https://img.shields.io/badge/dimensions-14-0B7285?style=for-the-badge)](#the-fourteen-dimensions)
@@ -143,8 +144,8 @@ loopgate --repo ../other gate --strict      # judge another project instead of t
 The gates ship inside the package, so a project does not need a copy of this repository:
 
 ```bash
-pip install "git+https://github.com/mjeksonpx/loopagent.git@v0.4.1"   # works today
-# pip install loopagent                                              # the same, once published on PyPI
+pip install loopagent-gate                                         # from PyPI
+# pip install "git+https://github.com/mjeksonpx/loopagent.git@v0.4.2"   # or straight from the tag
 cd your-project                              # a git repository, or one with AGENTS.md
 loopgate init                                # writes the contract skill, AGENTS.md / PLANS.md / README.md,
                                              # and declares the cold start (never a fabricated PASS)
@@ -154,9 +155,9 @@ loopgate gate --strict                       # -> STOP: names what the project s
 The install names a tag on purpose: `git+…` without one follows `main`, so the code under you would change
 under your feet. Use `@v0.4.0` (or a later tag) and pin it in your own requirements.
 
-> **The distribution is `loopagent`; the command is `loopgate`.** The name `loopgate` on PyPI belongs to an
-> unrelated project, so `pip install loopgate` would install somebody else's code. Use `loopagent` (once
-> published) or the git tag above, which needs no registry at all.
+> **The distribution is `loopagent-gate`; the command is `loopgate`.** Neither `loopgate` (taken by an
+> unrelated project) nor `loopagent` (too similar to `loop-agent`) can be used on PyPI, so the name says both
+> things at once. `pip install loopgate` would install somebody else's code.
 
 `init` never overwrites an existing `AGENTS.md`, `PLANS.md` or `README.md`, and it writes no round, handoff
 or anchor: those are evidence of a run.
